@@ -1,6 +1,28 @@
 # Ramp CLI
 
-Initial Ramp CLI package focused on config validation.
+Public command-line client for Ramp.
+
+This repository contains the CLI only. It talks to the hosted Ramp API, while
+the main Ramp application/backend remains private and is not included here.
+
+## Open Source Boundary
+
+- This repo is the public CLI source code.
+- The Ramp web app, API internals, and deployment platform are not part of this repository.
+- End users can install and use the CLI normally against Ramp.
+- Some local development flows in this repo expect access to a Ramp backend instance.
+
+## Install
+
+```bash
+pnpm add -g @ramp-sh/cli
+```
+
+Or run it without installing:
+
+```bash
+pnpm dlx @ramp-sh/cli --help
+```
 
 ## Login
 
@@ -111,7 +133,7 @@ ramp logout
 ## Usage
 
 ```bash
-npx @ramp-sh/cli validate
+pnpm dlx @ramp-sh/cli validate
 ```
 
 `validate` uses remote API validation only.
@@ -130,25 +152,25 @@ Auto project resolution (used by `status` and `deploy`) priority:
 Remote validation against local app:
 
 ```bash
- npx @ramp-sh/cli validate --api-url http://localhost:8000
+pnpm dlx @ramp-sh/cli validate --api-url http://localhost:8000
 ```
 
 Validate a specific file:
 
 ```bash
-npx @ramp-sh/cli validate ./path/to/ramp.yaml
+pnpm dlx @ramp-sh/cli validate ./path/to/ramp.yaml
 ```
 
 JSON output:
 
 ```bash
-npx @ramp-sh/cli validate --json
+pnpm dlx @ramp-sh/cli validate --json
 ```
 
 Strict mode (warnings fail with exit code 2):
 
 ```bash
-npx @ramp-sh/cli validate --strict
+pnpm dlx @ramp-sh/cli validate --strict
 ```
 
 ## Init templates
@@ -170,9 +192,12 @@ Use `--json` to emit metadata for scripting. The JSON payload includes the gener
 ## Local development
 
 ```bash
-pnpm --dir packages/cli install
-pnpm --dir packages/cli sync-schema
-pnpm --dir packages/cli build
-pnpm --dir packages/cli test
-node packages/cli/dist/bin.js validate packages/cli/fixtures/valid.ramp.yaml
+pnpm install
+pnpm sync-schema
+pnpm build
+pnpm test
+node dist/bin.js validate fixtures/valid.ramp.yaml
 ```
+
+For local development against a Ramp backend, point the CLI at a reachable API
+instance with `--api-url` or `RAMP_API_URL`.

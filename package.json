@@ -6,12 +6,11 @@
     "packageManager": "pnpm@9.12.3",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/mafrasil/ramp.git",
-        "directory": "packages/cli"
+        "url": "git+https://github.com/ramp-sh/cli.git"
     },
-    "homepage": "https://github.com/mafrasil/ramp/tree/main/packages/cli",
+    "homepage": "https://github.com/ramp-sh/cli",
     "bugs": {
-        "url": "https://github.com/mafrasil/ramp/issues"
+        "url": "https://github.com/ramp-sh/cli/issues"
     },
     "publishConfig": {
         "access": "public"
@@ -32,9 +31,10 @@
     "keywords": [
         "ramp",
         "cli",
-        "deploy"
+        "deploy",
+        "devops"
     ],
-    "license": "UNLICENSED",
+    "license": "Apache-2.0",
     "engines": {
         "node": ">=20"
     },
