@@ -1,0 +1,184 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://ramp.sh/schemas/ramp.schema.json",
+    "title": "Ramp Config",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["stack", "services"],
+    "properties": {
+        "stack": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 63,
+            "pattern": "^(?:[a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$",
+            "description": "Stack name used for app identity and preview naming."
+        },
+        "services": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": false,
+            "patternProperties": {
+                "^(?:[a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$": {
+                    "$ref": "#/$defs/service"
+                }
+            },
+            "description": "Service map keyed by service name."
+        },
+        "resources": {
+            "type": "object",
+            "additionalProperties": false,
+            "patternProperties": {
+                "^[a-z][a-z0-9_]*$": {
+                    "$ref": "#/$defs/resource"
+                }
+            },
+            "description": "Optional resource map keyed by resource name."
+        }
+    },
+    "$defs": {
+        "service": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "runtime"],
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "enum": ["web", "worker", "cron"]
+                },
+                "runtime": {
+                    "type": "string",
+                    "enum": [
+                        "node@20",
+                        "node@22",
+                        "node@24",
+                        "node@25",
+                        "node@lts",
+                        "go@1.24",
+                        "go@1.25",
+                        "go@1.26",
+                        "php@8.3",
+                        "php@8.4",
+                        "php@8.5",
+                        "python@3.12",
+                        "python@3.13",
+                        "python@3.14"
+                    ]
+                },
+                "build": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Build command only. Do not include dependency install commands."
+                },
+                "start": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "migrate": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "port": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 65535
+                },
+                "health": {
+                    "type": "string",
+                    "pattern": "^/",
+                    "description": "Health path must start with '/'."
+                },
+                "schedule": {
+                    "type": "string",
+                    "pattern": "^\\S+\\s+\\S+\\s+\\S+\\s+\\S+\\s+\\S+$",
+                    "description": "Basic 5-field cron format: minute hour day month weekday."
+                },
+                "env_file": {
+                    "type": "string",
+                    "pattern": "^(?!.*\\.\\.).+$",
+                    "description": "Path to env file. Must not include '..'."
+                },
+                "octane": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["server"],
+                    "properties": {
+                        "server": {
+                            "type": "string",
+                            "enum": ["frankenphp"]
+                        },
+                        "workers": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "max_requests": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    "description": "Laravel Octane settings for PHP web services. Cross-field rules are enforced server-side."
+                },
+                "domains": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "allOf": [
+                            {
+                                "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\\.[a-z]{2,}$"
+                            },
+                            {
+                                "not": {
+                                    "pattern": "\\.onramp\\.sh$"
+                                }
+                            }
+                        ]
+                    },
+                    "uniqueItems": true
+                },
+                "env": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "description": "Environment variables. Supports references like ${db.url}."
+                },
+                "commands": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "description": "Saved quick commands map: command_name -> command template."
+                }
+            }
+        },
+        "resource": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type"],
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "postgres@14",
+                        "postgres@15",
+                        "postgres@16",
+                        "postgres@17",
+                        "postgres@18",
+                        "mysql@8.0",
+                        "mysql@8.4",
+                        "mariadb@10.11",
+                        "mariadb@11.4",
+                        "redis@7",
+                        "mongodb@7.0",
+                        "mongodb@8.0",
+                        "clickhouse@latest",
+                        "meilisearch@latest",
+                        "elasticsearch@7",
+                        "elasticsearch@8",
+                        "elasticsearch@9"
+                    ]
+                }
+            }
+        }
+    },
+    "$comment": "Cross-field constraints like unique web ports across services, duplicate domains across services, and env reference resolution are enforced server-side by ValidateConfigAction."
+}

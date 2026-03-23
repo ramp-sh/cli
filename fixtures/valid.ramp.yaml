@@ -1,0 +1,12 @@
+stack: my-app
+
+services:
+    api:
+        type: web
+        runtime: node@24
+        start: node server.js
+        port: 3000
+
+resources:
+    db:
+        type: postgres@17

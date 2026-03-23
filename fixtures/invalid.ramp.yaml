@@ -1,0 +1,8 @@
+stack: My App
+
+services:
+    API:
+        type: web
+        runtime: node@21
+        start: node server.js
+        port: 80
