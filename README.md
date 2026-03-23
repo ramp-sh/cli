@@ -14,6 +14,8 @@ the main Ramp application/backend remains private and is not included here.
 
 ## Install
 
+Requires Node 24+.
+
 ```bash
 pnpm add -g @ramp-sh/cli
 ```
@@ -190,6 +192,8 @@ With `--yes`, existing files default to a safe merge; use `--force` to overwrite
 Use `--json` to emit metadata for scripting. The JSON payload includes the generated YAML.
 
 ## Local development
+
+Use Node 24+ for local development in this repository.
 
 ```bash
 pnpm install
