@@ -1,4 +1,4 @@
-import { readFile, access, unlink, stat, writeFile } from 'node:fs/promises';
+import { readFile, unlink, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import readline from 'node:readline/promises';
@@ -8,17 +8,15 @@ import { buildApiV1Endpoint } from '../lib/api-url.js';
 import { buildApiHeaders } from '../lib/api-headers.js';
 import { describeApiError } from '../lib/api-errors.js';
 import { askOrCancel, wireSigintToClose } from '../lib/prompt.js';
-import {
-  ensureSelectedWorkspaceId,
-  readCredentials,
-  type StoredCredentials,
-} from '../lib/auth-store.js';
+import { type StoredCredentials } from '../lib/auth-store.js';
 import { writeProjectLink } from '../lib/project-link.js';
 import { selectWithArrows } from '../lib/select.js';
 import { findConfigFile } from '../lib/find-config-file.js';
 import { ensureLocalOctaneReady } from '../lib/octane-preflight.js';
 import { createProjectArchive } from '../lib/archive.js';
+import { fileExists } from '../lib/file-exists.js';
 import { formatFileSize } from '../lib/format-size.js';
+import { requireAuth } from '../lib/require-auth.js';
 import {
   box,
   isInteractiveUi,
@@ -68,18 +66,15 @@ type CreateUploadResponse = {
 };
 
 export async function runCreateCommand(options: CreateCommandOptions): Promise<number> {
-  const credentials = await readCredentials();
+  const auth = await requireAuth(options.apiUrl);
 
-  if (credentials === null) {
-    process.stderr.write(`${statusLine('error', 'Not logged in. Run `ramp login` first.')}\n`);
+  if (auth.error || !auth.context) {
+    process.stderr.write(`${statusLine('error', auth.error ?? 'Not logged in.')}\n`);
     return 1;
   }
 
-  const resolvedCredentials = await ensureSelectedWorkspaceId({
-    ...credentials,
-    apiUrl: options.apiUrl ?? credentials.apiUrl,
-  });
-  const apiUrl = resolvedCredentials.apiUrl;
+  const apiUrl = auth.context.apiUrl;
+  const resolvedCredentials = auth.context.credentials;
   const servers = await listServers(apiUrl, resolvedCredentials);
 
   if (servers.error) {
@@ -742,13 +737,4 @@ function extractErrors(
   }
 
   return [`HTTP ${status}`];
-}
-
-async function fileExists(filePath: string): Promise<boolean> {
-  try {
-    await access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
 }

@@ -1,8 +1,9 @@
-import { access, readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process, { stdin, stdout } from 'node:process';
 import readline from 'node:readline/promises';
 import { parseDocument, stringify } from 'yaml';
+import { fileExists } from '../lib/file-exists.js';
 import { askOrCancel, wireSigintToClose } from '../lib/prompt.js';
 import { selectManyWithArrows, selectWithArrows } from '../lib/select.js';
 import {
@@ -1029,13 +1030,4 @@ function normalizeTemplate(value: string | undefined): Template | null {
   }
 
   return null;
-}
-
-async function fileExists(filePath: string): Promise<boolean> {
-  try {
-    await access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
 }

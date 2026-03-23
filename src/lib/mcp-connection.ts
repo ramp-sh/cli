@@ -1,7 +1,7 @@
-import { ensureSelectedWorkspaceId, readCredentials } from './auth-store.js';
 import { buildApiHeaders } from './api-headers.js';
 import { describeApiError } from './api-errors.js';
 import { buildEndpoint } from './api-url.js';
+import { requireAuth } from './require-auth.js';
 
 export type McpConnection = {
   url: string;
@@ -25,25 +25,19 @@ export type McpConnectionLookup =
     };
 
 export async function readMcpConnection(apiUrlOverride?: string): Promise<McpConnectionLookup> {
-  const credentials = await readCredentials();
+  const auth = await requireAuth(apiUrlOverride);
 
-  if (credentials === null) {
+  if (auth.error || !auth.context) {
     return {
       status: 'missing',
     };
   }
 
-  const resolvedCredentials = await ensureSelectedWorkspaceId({
-    ...credentials,
-    apiUrl: apiUrlOverride ?? credentials.apiUrl,
-  });
-  const apiUrl = resolvedCredentials.apiUrl;
-
   try {
-    const response = await fetch(buildEndpoint(apiUrl, '/api/v1/auth/me'), {
+    const response = await fetch(buildEndpoint(auth.context.apiUrl, '/api/v1/auth/me'), {
       headers: buildApiHeaders({
-        token: resolvedCredentials.token,
-        selectedWorkspaceId: resolvedCredentials.selectedWorkspaceId,
+        token: auth.context.credentials.token,
+        selectedWorkspaceId: auth.context.credentials.selectedWorkspaceId,
       }),
     });
 
@@ -65,11 +59,11 @@ export async function readMcpConnection(apiUrlOverride?: string): Promise<McpCon
   return {
     status: 'ok',
     connection: {
-      url: buildEndpoint(apiUrl, '/mcp/ramp'),
-      authorization: `Bearer ${resolvedCredentials.token}`,
-      token: resolvedCredentials.token,
-      apiUrl,
-      email: resolvedCredentials.email ?? null,
+      url: buildEndpoint(auth.context.apiUrl, '/mcp/ramp'),
+      authorization: `Bearer ${auth.context.credentials.token}`,
+      token: auth.context.credentials.token,
+      apiUrl: auth.context.apiUrl,
+      email: auth.context.credentials.email ?? null,
     },
   };
 }

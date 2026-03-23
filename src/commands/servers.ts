@@ -2,7 +2,7 @@ import process from 'node:process';
 import { buildApiV1Endpoint } from '../lib/api-url.js';
 import { buildApiHeaders } from '../lib/api-headers.js';
 import { describeApiError } from '../lib/api-errors.js';
-import { ensureSelectedWorkspaceId, readCredentials } from '../lib/auth-store.js';
+import { requireAuth } from '../lib/require-auth.js';
 import {
   appHeader,
   badge,
@@ -21,22 +21,17 @@ type ServersCommandOptions = {
 };
 
 export async function runServersCommand(options: ServersCommandOptions): Promise<number> {
-  const credentials = await readCredentials();
+  const auth = await requireAuth(options.apiUrl);
 
-  if (credentials === null) {
-    process.stderr.write(`${statusLine('error', 'Not logged in. Run `ramp login` first.')}\n`);
+  if (auth.error || !auth.context) {
+    process.stderr.write(`${statusLine('error', auth.error ?? 'Not logged in.')}\n`);
     return 1;
   }
 
-  const resolvedCredentials = await ensureSelectedWorkspaceId({
-    ...credentials,
-    apiUrl: options.apiUrl ?? credentials.apiUrl,
-  });
-  const apiUrl = resolvedCredentials.apiUrl;
-  const response = await fetch(buildApiV1Endpoint(apiUrl, '/servers'), {
+  const response = await fetch(buildApiV1Endpoint(auth.context.apiUrl, '/servers'), {
     headers: buildApiHeaders({
-      token: resolvedCredentials.token,
-      selectedWorkspaceId: resolvedCredentials.selectedWorkspaceId,
+      token: auth.context.credentials.token,
+      selectedWorkspaceId: auth.context.credentials.selectedWorkspaceId,
     }),
   });
 

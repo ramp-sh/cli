@@ -1,7 +1,8 @@
 import { execFile } from 'node:child_process';
-import { readFile, stat, access } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { fileExists } from './file-exists.js';
 import { formatFileSize } from './format-size.js';
 
 const execFileAsync = promisify(execFile);
@@ -104,13 +105,4 @@ function parseIgnoreFile(content: string): string[] {
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line !== '' && !line.startsWith('#'));
-}
-
-async function fileExists(filePath: string): Promise<boolean> {
-  try {
-    await access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
 }

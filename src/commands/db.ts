@@ -19,6 +19,17 @@ type BaseOptions = {
 type BackupItem = {
   id: string;
   created_at: string;
+  status?: string;
+};
+
+type BackupListResponse = {
+  data?: BackupItem[];
+};
+
+type BackupActionResponse = {
+  ok?: boolean;
+  backup?: { id?: string };
+  errors?: string[];
 };
 
 export async function runDbBackupCommand(
@@ -53,7 +64,7 @@ export async function runDbBackupCommand(
       return 1;
     }
 
-    const payload = await listResponse.json();
+    const payload = (await listResponse.json()) as BackupListResponse;
 
     if (options.json) {
       process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
@@ -61,7 +72,7 @@ export async function runDbBackupCommand(
     }
 
     for (const row of payload.data ?? []) {
-      process.stdout.write(`${row.id} ${row.status} ${row.created_at}\n`);
+      process.stdout.write(`${row.id} ${row.status ?? 'unknown'} ${row.created_at}\n`);
     }
 
     return 0;
@@ -79,17 +90,11 @@ export async function runDbBackupCommand(
   );
 
   if (!response.ok) {
-    process.stderr.write(
-      `Failed to create backup: ${await describeApiError(response, 'Failed to create backup')}\n`,
-    );
+    process.stderr.write(`${await describeApiError(response, 'Failed to create backup')}\n`);
     return 1;
   }
 
-  const payload = (await response.json()) as {
-    ok?: boolean;
-    backup?: { id?: string };
-    errors?: string[];
-  };
+  const payload = (await response.json()) as BackupActionResponse;
 
   if (payload.ok !== true) {
     process.stderr.write(`${payload.errors?.[0] ?? 'Failed to create backup.'}\n`);
@@ -143,7 +148,7 @@ export async function runDbRestoreCommand(
       return 1;
     }
 
-    const payload = await listResponse.json();
+    const payload = (await listResponse.json()) as BackupListResponse;
 
     const latest = (payload.data ?? [])[0] as BackupItem | undefined;
 
@@ -192,16 +197,11 @@ export async function runDbRestoreCommand(
   );
 
   if (!response.ok) {
-    process.stderr.write(
-      `Failed to restore backup: ${await describeApiError(response, 'Failed to restore backup')}\n`,
-    );
+    process.stderr.write(`${await describeApiError(response, 'Failed to restore backup')}\n`);
     return 1;
   }
 
-  const payload = (await response.json()) as {
-    ok?: boolean;
-    errors?: string[];
-  };
+  const payload = (await response.json()) as BackupActionResponse;
 
   if (payload.ok !== true) {
     process.stderr.write(`${payload.errors?.[0] ?? 'Failed to restore backup.'}\n`);

@@ -1,6 +1,5 @@
 import path from 'node:path';
 import process from 'node:process';
-import { ensureSelectedWorkspaceId, readCredentials } from '../lib/auth-store.js';
 import { findConfigFile } from '../lib/find-config-file.js';
 import {
   lookupApps,
@@ -9,6 +8,7 @@ import {
   readStackFromConfigFile,
 } from '../lib/project-resolver.js';
 import { writeProjectLink } from '../lib/project-link.js';
+import { requireAuth } from '../lib/require-auth.js';
 import { box, isInteractiveUi, paint, sectionHeader, statusLine, stepper } from '../lib/ui.js';
 
 type LinkCommandOptions = {
@@ -21,18 +21,13 @@ type LinkCommandOptions = {
 };
 
 export async function runLinkCommand(options: LinkCommandOptions): Promise<number> {
-  const credentials = await readCredentials();
+  const auth = await requireAuth(options.apiUrl);
 
-  if (credentials === null) {
-    process.stderr.write(`${statusLine('error', 'Not logged in. Run `ramp login` first.')}\n`);
+  if (auth.error || !auth.context) {
+    process.stderr.write(`${statusLine('error', auth.error ?? 'Not logged in.')}\n`);
     return 1;
   }
 
-  const resolvedCredentials = await ensureSelectedWorkspaceId({
-    ...credentials,
-    apiUrl: options.apiUrl ?? credentials.apiUrl,
-  });
-  const apiUrl = resolvedCredentials.apiUrl;
   const configFilePath = await findConfigFile();
 
   if (isInteractiveUi() && !options.quiet && !options.json) {
@@ -56,14 +51,14 @@ export async function runLinkCommand(options: LinkCommandOptions): Promise<numbe
 
   let matches = stack
     ? await lookupAppsByStack({
-        apiUrl,
-        credentials: resolvedCredentials,
+        apiUrl: auth.context.apiUrl,
+        credentials: auth.context.credentials,
         stack,
         server: options.server,
       })
     : await lookupApps({
-        apiUrl,
-        credentials: resolvedCredentials,
+        apiUrl: auth.context.apiUrl,
+        credentials: auth.context.credentials,
         server: options.server,
       });
   let usedFallbackLookup = false;
@@ -76,8 +71,8 @@ export async function runLinkCommand(options: LinkCommandOptions): Promise<numbe
   if (matches.apps.length === 0) {
     if (stack !== null) {
       const fallback = await lookupApps({
-        apiUrl,
-        credentials: resolvedCredentials,
+        apiUrl: auth.context.apiUrl,
+        credentials: auth.context.credentials,
         server: options.server,
       });
 

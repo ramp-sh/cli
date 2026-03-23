@@ -1,10 +1,10 @@
-import { constants as fsConstants } from 'node:fs';
-import { access, readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import process from 'node:process';
 import { buildApiV1Endpoint } from '../lib/api-url.js';
 import { buildApiHeaders } from '../lib/api-headers.js';
 import { describeApiError } from '../lib/api-errors.js';
-import { ensureSelectedWorkspaceId, readCredentials } from '../lib/auth-store.js';
+import { fileExists } from '../lib/file-exists.js';
+import { requireAuth } from '../lib/require-auth.js';
 import { box, keyHint, paint, statusLine } from '../lib/ui.js';
 
 type ImportRenderCommandOptions = {
@@ -43,18 +43,12 @@ type ImportBlueprintResponse = {
 };
 
 export async function runImportRenderCommand(options: ImportRenderCommandOptions): Promise<number> {
-  const credentials = await readCredentials();
+  const auth = await requireAuth(options.apiUrl);
 
-  if (credentials === null) {
+  if (auth.error || !auth.context) {
     process.stderr.write('Not logged in. Run `ramp login` first.\n');
     return 1;
   }
-
-  const resolvedCredentials = await ensureSelectedWorkspaceId({
-    ...credentials,
-    apiUrl: options.apiUrl ?? credentials.apiUrl,
-  });
-  const apiUrl = resolvedCredentials.apiUrl;
 
   let payload:
     | {
@@ -101,11 +95,11 @@ export async function runImportRenderCommand(options: ImportRenderCommandOptions
   }
 
   try {
-    const response = await fetch(buildApiV1Endpoint(apiUrl, '/blueprints/import'), {
+    const response = await fetch(buildApiV1Endpoint(auth.context.apiUrl, '/blueprints/import'), {
       method: 'POST',
       headers: buildApiHeaders({
-        token: resolvedCredentials.token,
-        selectedWorkspaceId: resolvedCredentials.selectedWorkspaceId,
+        token: auth.context.credentials.token,
+        selectedWorkspaceId: auth.context.credentials.selectedWorkspaceId,
         contentType: 'application/json',
       }),
       body: JSON.stringify(payload),
@@ -199,13 +193,4 @@ async function readBlueprintInput(options: ImportRenderCommandOptions): Promise<
   }
 
   return null;
-}
-
-async function fileExists(filePath: string): Promise<boolean> {
-  try {
-    await access(filePath, fsConstants.F_OK);
-    return true;
-  } catch {
-    return false;
-  }
 }

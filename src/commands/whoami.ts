@@ -1,8 +1,8 @@
 import process from 'node:process';
-import { ensureSelectedWorkspaceId, readCredentials } from '../lib/auth-store.js';
 import { buildApiHeaders } from '../lib/api-headers.js';
 import { describeApiError } from '../lib/api-errors.js';
 import { buildEndpoint } from '../lib/api-url.js';
+import { requireAuth } from '../lib/require-auth.js';
 import { box, keyHint, paint, statusLine } from '../lib/ui.js';
 
 type WhoAmICommandOptions = {
@@ -22,9 +22,9 @@ type MeResponse = {
 };
 
 export async function runWhoAmICommand(options: WhoAmICommandOptions): Promise<number> {
-  const credentials = await readCredentials();
+  const auth = await requireAuth(options.apiUrl);
 
-  if (credentials === null) {
+  if (auth.error || !auth.context) {
     process.stderr.write('Not logged in. Run `ramp login` first.\n');
     return 1;
   }
@@ -35,11 +35,11 @@ export async function runWhoAmICommand(options: WhoAmICommandOptions): Promise<n
         `${JSON.stringify(
           {
             user: {
-              email: credentials.email ?? null,
+              email: auth.context.credentials.email ?? null,
             },
-            apiUrl: options.apiUrl ?? credentials.apiUrl,
-            token: credentials.token,
-            authorization: `Bearer ${credentials.token}`,
+            apiUrl: auth.context.apiUrl,
+            token: auth.context.credentials.token,
+            authorization: `Bearer ${auth.context.credentials.token}`,
           },
           null,
           2,
@@ -48,8 +48,11 @@ export async function runWhoAmICommand(options: WhoAmICommandOptions): Promise<n
     } else if (!options.quiet) {
       process.stdout.write(
         `${box([
-          statusLine('success', `Logged in as ${paint(credentials.email ?? 'unknown', 'bold')}`),
-          `Authorization: Bearer ${credentials.token}`,
+          statusLine(
+            'success',
+            `Logged in as ${paint(auth.context.credentials.email ?? 'unknown', 'bold')}`,
+          ),
+          `Authorization: Bearer ${auth.context.credentials.token}`,
           keyHint('Use `ramp mcp:cursor` for a ready-to-paste MCP snippet.'),
         ])}\n`,
       );
@@ -58,17 +61,11 @@ export async function runWhoAmICommand(options: WhoAmICommandOptions): Promise<n
     return 0;
   }
 
-  const resolvedCredentials = await ensureSelectedWorkspaceId({
-    ...credentials,
-    apiUrl: options.apiUrl ?? credentials.apiUrl,
-  });
-  const apiUrl = resolvedCredentials.apiUrl;
-
   try {
-    const response = await fetch(buildEndpoint(apiUrl, '/api/v1/auth/me'), {
+    const response = await fetch(buildEndpoint(auth.context.apiUrl, '/api/v1/auth/me'), {
       headers: buildApiHeaders({
-        token: resolvedCredentials.token,
-        selectedWorkspaceId: resolvedCredentials.selectedWorkspaceId,
+        token: auth.context.credentials.token,
+        selectedWorkspaceId: auth.context.credentials.selectedWorkspaceId,
       }),
     });
 
@@ -92,7 +89,7 @@ export async function runWhoAmICommand(options: WhoAmICommandOptions): Promise<n
         `${JSON.stringify(
           {
             user,
-            apiUrl,
+            apiUrl: auth.context.apiUrl,
           },
           null,
           2,
@@ -102,7 +99,7 @@ export async function runWhoAmICommand(options: WhoAmICommandOptions): Promise<n
       process.stdout.write(`Logged in as ${user.email} (${user.name ?? 'unknown'}).\n`);
 
       if (options.verbose) {
-        process.stdout.write(`API: ${apiUrl}\n`);
+        process.stdout.write(`API: ${auth.context.apiUrl}\n`);
       }
     }
 

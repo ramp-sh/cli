@@ -2,7 +2,7 @@ import process from 'node:process';
 import { buildEndpoint, buildApiV1Endpoint } from '../lib/api-url.js';
 import { buildApiHeaders } from '../lib/api-headers.js';
 import { describeApiError } from '../lib/api-errors.js';
-import { ensureSelectedWorkspaceId, readCredentials } from '../lib/auth-store.js';
+import { requireAuth } from '../lib/require-auth.js';
 import { tryOpenBrowser } from '../lib/browser.js';
 import { resolveProjectContext } from '../lib/project-resolver.js';
 import { keyHint, paint, statusLine } from '../lib/ui.js';
@@ -197,25 +197,19 @@ async function fetchAppTarget(
 async function fetchDashboardTarget(
   options: BrowserCommandOptions,
 ): Promise<{ target: Target | null; error: string | null }> {
-  const credentials = await readCredentials();
+  const auth = await requireAuth(options.apiUrl);
 
-  if (credentials === null) {
+  if (auth.error || !auth.context) {
     return {
       target: null,
-      error: 'Not logged in. Run `ramp login` first.',
+      error: auth.error ?? 'Not logged in.',
     };
   }
 
-  const resolvedCredentials = await ensureSelectedWorkspaceId({
-    ...credentials,
-    apiUrl: options.apiUrl ?? credentials.apiUrl,
-  });
-  const apiUrl = resolvedCredentials.apiUrl;
-
-  const response = await fetch(buildEndpoint(apiUrl, '/api/v1/auth/me'), {
+  const response = await fetch(buildEndpoint(auth.context.apiUrl, '/api/v1/auth/me'), {
     headers: buildApiHeaders({
-      token: resolvedCredentials.token,
-      selectedWorkspaceId: resolvedCredentials.selectedWorkspaceId,
+      token: auth.context.credentials.token,
+      selectedWorkspaceId: auth.context.credentials.selectedWorkspaceId,
     }),
   });
 

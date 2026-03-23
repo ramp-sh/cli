@@ -2,12 +2,8 @@ import process from 'node:process';
 import { buildApiV1Endpoint } from '../lib/api-url.js';
 import { buildApiHeaders } from '../lib/api-headers.js';
 import { describeApiError } from '../lib/api-errors.js';
-import {
-  ensureSelectedWorkspaceId,
-  readCredentials,
-  saveCredentials,
-  type StoredCredentials,
-} from '../lib/auth-store.js';
+import { saveCredentials, type StoredCredentials } from '../lib/auth-store.js';
+import { requireAuth } from '../lib/require-auth.js';
 import { selectWithArrows } from '../lib/select.js';
 import { appHeader, badge, box, isInteractiveUi, keyHint, paint, statusLine } from '../lib/ui.js';
 
@@ -37,19 +33,14 @@ type WorkspaceSwitchResponse = {
 };
 
 export async function runWorkspaceCommand(options: WorkspaceCommandOptions): Promise<number> {
-  const credentials = await readCredentials();
+  const auth = await requireAuth(options.apiUrl);
 
-  if (credentials === null) {
-    process.stderr.write(`${statusLine('error', 'Not logged in. Run `ramp login` first.')}\n`);
+  if (auth.error || !auth.context) {
+    process.stderr.write(`${statusLine('error', auth.error ?? 'Not logged in.')}\n`);
     return 1;
   }
 
-  const resolvedCredentials = await ensureSelectedWorkspaceId({
-    ...credentials,
-    apiUrl: options.apiUrl ?? credentials.apiUrl,
-  });
-  const apiUrl = resolvedCredentials.apiUrl;
-  const workspacesResult = await fetchWorkspaces(apiUrl, resolvedCredentials);
+  const workspacesResult = await fetchWorkspaces(auth.context.apiUrl, auth.context.credentials);
 
   if (workspacesResult.error !== null) {
     process.stderr.write(`${statusLine('error', workspacesResult.error)}\n`);
@@ -70,8 +61,8 @@ export async function runWorkspaceCommand(options: WorkspaceCommandOptions): Pro
     }
 
     return switchWorkspace({
-      apiUrl,
-      credentials: resolvedCredentials,
+      apiUrl: auth.context.apiUrl,
+      credentials: auth.context.credentials,
       workspace: targetWorkspace,
       currentWorkspace,
       json: options.json,
@@ -109,8 +100,8 @@ export async function runWorkspaceCommand(options: WorkspaceCommandOptions): Pro
     }
 
     return switchWorkspace({
-      apiUrl,
-      credentials: resolvedCredentials,
+      apiUrl: auth.context.apiUrl,
+      credentials: auth.context.credentials,
       workspace: onlyWorkspace,
       currentWorkspace,
       json: false,
@@ -150,8 +141,8 @@ export async function runWorkspaceCommand(options: WorkspaceCommandOptions): Pro
   }
 
   return switchWorkspace({
-    apiUrl,
-    credentials: resolvedCredentials,
+    apiUrl: auth.context.apiUrl,
+    credentials: auth.context.credentials,
     workspace: selectedWorkspace,
     currentWorkspace,
     json: false,

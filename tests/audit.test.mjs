@@ -148,6 +148,49 @@ test('exec prints API validation messages instead of a generic fallback', async 
   }
 });
 
+test('env set error messages do not double the command label', async () => {
+  const tempDir = makeTempDir();
+  const homeDir = path.join(tempDir, 'home');
+
+  try {
+    seedCredentials(homeDir);
+    seedProjectLink(tempDir);
+
+    const result = runCli(['env', 'set', 'APP_ENV', 'production'], tempDir, {
+      HOME: homeDir,
+      RAMP_FETCH_FIXTURES: JSON.stringify([
+        {
+          url: 'https://api.example.test/api/v1/apps/app_123',
+          method: 'GET',
+          status: 200,
+          body: {
+            data: {
+              id: 'app_123',
+              workspace_id: 'ws_personal',
+              stack: 'linked-app',
+              status: 'ready',
+            },
+          },
+        },
+        {
+          url: 'https://api.example.test/api/v1/apps/app_123/env/set',
+          method: 'POST',
+          status: 422,
+          body: {
+            message: 'Invalid env var name.',
+          },
+        },
+      ]),
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Invalid env var name\./);
+    assert.doesNotMatch(result.stderr, /Failed to set env var: Failed to set env var/);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
 test('env pull writes .env files with private permissions', async () => {
   const tempDir = makeTempDir();
   const homeDir = path.join(tempDir, 'home');

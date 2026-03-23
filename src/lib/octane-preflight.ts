@@ -1,7 +1,8 @@
-import { access, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { parseDocument } from 'yaml';
 import { findConfigFile } from './find-config-file.js';
+import { fileExists } from './file-exists.js';
 
 type OctaneReadinessResult = { ok: true } | { ok: false; message: string; details: string[] };
 
@@ -117,13 +118,4 @@ async function checkComposerForOctane(
     ok: false,
     detail: 'Missing `composer.json` dependency `laravel/octane`.',
   };
-}
-
-async function fileExists(filePath: string): Promise<boolean> {
-  try {
-    await access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
 }

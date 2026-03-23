@@ -86,9 +86,7 @@ export async function runEnvSet(
   );
 
   if (!response.ok) {
-    process.stderr.write(
-      `Failed to set env var: ${await describeApiError(response, 'Failed to set env var')}\n`,
-    );
+    process.stderr.write(`${await describeApiError(response, 'Failed to set env var')}\n`);
     return 1;
   }
 
@@ -126,9 +124,7 @@ export async function runEnvDelete(options: BaseEnvOptions & { key: string }): P
   });
 
   if (response.status !== 204) {
-    process.stderr.write(
-      `Failed to delete env var: ${await describeApiError(response, 'Failed to delete env var')}\n`,
-    );
+    process.stderr.write(`${await describeApiError(response, 'Failed to delete env var')}\n`);
     return 1;
   }
 
@@ -213,9 +209,7 @@ export async function runEnvPush(options: BaseEnvOptions & { file: string }): Pr
   );
 
   if (!response.ok) {
-    process.stderr.write(
-      `Failed to push env vars: ${await describeApiError(response, 'Failed to push env vars')}\n`,
-    );
+    process.stderr.write(`${await describeApiError(response, 'Failed to push env vars')}\n`);
     return 1;
   }
 

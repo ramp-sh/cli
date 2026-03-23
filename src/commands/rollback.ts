@@ -43,9 +43,7 @@ export async function runRollbackCommand(options: RollbackCommandOptions): Promi
   );
 
   if (!response.ok) {
-    process.stderr.write(
-      `Failed to rollback: ${await describeApiError(response, 'Failed to rollback app')}\n`,
-    );
+    process.stderr.write(`${await describeApiError(response, 'Failed to rollback app')}\n`);
     return 1;
   }
 
