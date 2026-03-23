@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
-import { readFile, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, stat } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileExists } from './file-exists.js';
@@ -57,10 +58,8 @@ export async function createProjectArchive(
   }
 
   const archiveName = `ramp-upload-${Date.now()}.tar.gz`;
-  const archivePath = path.join(projectRoot, archiveName);
-
-  // Also exclude the archive itself
-  excludePatterns.push(archiveName);
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'ramp-upload-'));
+  const archivePath = path.join(tempDir, archiveName);
 
   // Build tar --exclude args
   const excludeArgs: string[] = [];
