@@ -45,15 +45,15 @@ export async function runExecCommand(options: ExecOptions): Promise<number> {
     },
   );
 
-  const payload = (await response.json()) as {
-    output?: string;
-    exit_code?: number;
-  };
-
   if (!response.ok) {
     process.stderr.write(`${await describeApiError(response, 'Failed to run command')}\n`);
     return 1;
   }
+
+  const payload = (await response.json()) as {
+    output?: string;
+    exit_code?: number;
+  };
 
   if (options.json) {
     process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);

@@ -2,6 +2,11 @@ import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 import { buildApiV1Endpoint } from '../lib/api-url.js';
 import { buildApiHeaders } from '../lib/api-headers.js';
+import {
+  buildBashLoginCommand,
+  buildRemoteTmuxCommand,
+  toSafeTmuxSessionName,
+} from '../lib/ai-bridge-shell.js';
 import { describeApiError } from '../lib/api-errors.js';
 import { readProjectLink, updateProjectLink } from '../lib/project-link.js';
 import { resolveProjectContext } from '../lib/project-resolver.js';
@@ -103,7 +108,7 @@ export async function runAiBridgeCommand(options: AiBridgeOptions): Promise<numb
   }
 
   const binary = TOOL_BINARY[options.tool];
-  const sessionName = `ramp-${app.stack}-${options.tool}`;
+  const sessionName = toSafeTmuxSessionName(`ramp-${app.stack}-${options.tool}`);
 
   // Resolve SSH identity: explicit flag > saved in .ramp/config.json
   const link = await readProjectLink();
@@ -145,7 +150,7 @@ export async function runAiBridgeCommand(options: AiBridgeOptions): Promise<numb
   }
 
   // Preflight: check if tool binary exists on server
-  const whichCheck = spawnSync('ssh', [...sshBase, `bash -lic 'command -v ${binary}'`], {
+  const whichCheck = spawnSync('ssh', [...sshBase, buildBashLoginCommand(`command -v ${binary}`)], {
     stdio: ['ignore', 'pipe', 'pipe'],
     timeout: 10_000,
   });
@@ -166,7 +171,15 @@ export async function runAiBridgeCommand(options: AiBridgeOptions): Promise<numb
 
   // Launch: ssh -t into tmux with the tool binary
   // Use bash -lic to ensure PATH includes nvm/pyenv/etc from .bashrc
-  const remoteCmd = `tmux new-session -A -s ${sessionName} -c ${ssh.working_directory} "bash -lic ${binary}"`;
+  let remoteCmd: string;
+
+  try {
+    remoteCmd = buildRemoteTmuxCommand(sessionName, ssh.working_directory, binary);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid SSH context received.';
+    process.stderr.write(`${statusLine('error', message)}\n`);
+    return 1;
+  }
 
   const result = spawnSync('ssh', [...sshBase, '-t', remoteCmd], { stdio: 'inherit' });
 

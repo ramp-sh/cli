@@ -42,16 +42,21 @@ export async function runRollbackCommand(options: RollbackCommandOptions): Promi
     },
   );
 
+  if (!response.ok) {
+    process.stderr.write(
+      `Failed to rollback: ${await describeApiError(response, 'Failed to rollback app')}\n`,
+    );
+    return 1;
+  }
+
   const payload = (await response.json()) as {
     ok?: boolean;
     errors?: string[];
     rolled_back_to?: { id?: string; commit_sha?: string };
   };
 
-  if (!response.ok || payload.ok !== true) {
-    process.stderr.write(
-      `Failed to rollback: ${await describeApiError(response, 'Failed to rollback app')}\n`,
-    );
+  if (payload.ok !== true) {
+    process.stderr.write(`${payload.errors?.[0] ?? 'Failed to rollback app.'}\n`);
     return 1;
   }
 

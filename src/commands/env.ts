@@ -165,7 +165,7 @@ export async function runEnvPull(options: BaseEnvOptions & { output: string }): 
   }
 
   const payload = (await response.json()) as { content?: string };
-  await writeFile(options.output, `${payload.content ?? ''}\n`, 'utf8');
+  await writeFile(options.output, `${payload.content ?? ''}\n`, { encoding: 'utf8', mode: 0o600 });
 
   if (!options.quiet) {
     process.stdout.write(`Wrote env vars to ${options.output}.\n`);
@@ -181,7 +181,20 @@ export async function runEnvPush(options: BaseEnvOptions & { file: string }): Pr
     return 1;
   }
 
-  const content = await readFile(options.file, 'utf8');
+  let content: string;
+
+  try {
+    content = await readFile(options.file, 'utf8');
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      process.stderr.write(`Env file not found: ${options.file}\n`);
+      return 1;
+    }
+
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    process.stderr.write(`Failed to read env file ${options.file}: ${message}\n`);
+    return 1;
+  }
 
   const response = await fetch(
     buildApiV1Endpoint(context.apiUrl, `/apps/${context.appId}/env/import`),
@@ -199,18 +212,18 @@ export async function runEnvPush(options: BaseEnvOptions & { file: string }): Pr
     },
   );
 
-  const payload = (await response.json()) as {
-    imported?: number;
-    error?: string;
-    message?: string;
-  };
-
   if (!response.ok) {
     process.stderr.write(
       `Failed to push env vars: ${await describeApiError(response, 'Failed to push env vars')}\n`,
     );
     return 1;
   }
+
+  const payload = (await response.json()) as {
+    imported?: number;
+    error?: string;
+    message?: string;
+  };
 
   if (!options.quiet) {
     process.stdout.write(`Imported ${payload.imported ?? 0} env vars from ${options.file}.\n`);

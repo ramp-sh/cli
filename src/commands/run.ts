@@ -104,18 +104,18 @@ export async function runSavedCommand(options: RunOptions): Promise<number> {
     },
   );
 
-  const payload = (await response.json()) as {
-    output?: string;
-    exit_code?: number;
-    error?: string;
-  };
-
   if (!response.ok) {
     process.stderr.write(
       `Run failed: ${await describeApiError(response, 'Failed to run saved command')}\n`,
     );
     return 1;
   }
+
+  const payload = (await response.json()) as {
+    output?: string;
+    exit_code?: number;
+    error?: string;
+  };
 
   if (options.json) {
     process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);

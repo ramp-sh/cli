@@ -29,13 +29,13 @@ pnpm dlx @ramp-sh/cli --help
 ## Login
 
 ```bash
-ramp login --api-url http://127.0.0.1:8000
+ramp login
 ```
 
 You can also provide email up front:
 
 ```bash
-ramp login --email you@example.com --api-url http://127.0.0.1:8000
+ramp login --email you@example.com
 ```
 
 Or use an existing API token (useful for CI):
@@ -55,6 +55,8 @@ Link current project (creates `.ramp/config.json`):
 ```bash
 ramp link
 ```
+
+Add `.ramp/` to your app repo `.gitignore` so local project links do not get committed.
 
 Unlink current project:
 
@@ -139,7 +141,7 @@ pnpm dlx @ramp-sh/cli validate
 ```
 
 `validate` uses remote API validation only.
-Default API URL is `http://127.0.0.1:8000` (or `RAMP_API_URL` if set).
+Default API URL is `https://api.ramp.sh` (or `RAMP_API_URL` if set).
 Remote validation requires a CLI token from `ramp login`.
 Use `--server <id-or-name>` to include server-level collision checks (ports/domains).
 
@@ -197,7 +199,6 @@ Use Node 24+ for local development in this repository.
 
 ```bash
 pnpm install
-pnpm sync-schema
 pnpm build
 pnpm test
 node dist/bin.js validate fixtures/valid.ramp.yaml
@@ -205,6 +206,12 @@ node dist/bin.js validate fixtures/valid.ramp.yaml
 
 For local development against a Ramp backend, point the CLI at a reachable API
 instance with `--api-url` or `RAMP_API_URL`.
+
+If you need to refresh the bundled schema from another checkout, provide the source explicitly:
+
+```bash
+RAMP_SCHEMA_SOURCE=../app/docs/ramp/ramp.schema.json pnpm sync-schema
+```
 
 ## Quality Checks
 

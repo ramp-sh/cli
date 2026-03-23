@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { Command } from 'commander';
 import { runAppsCommand } from './commands/apps.js';
 import { runCreateCommand } from './commands/create.js';
@@ -28,9 +29,10 @@ import { runAiBridgeCommand } from './commands/ai-bridge.js';
 import { configureRampHelp } from './lib/help.js';
 import { brandBanner, isInteractiveUi } from './lib/ui.js';
 
+const DEFAULT_API_URL = process.env.RAMP_API_URL ?? 'https://api.ramp.sh';
 const program = new Command();
 
-program.name('ramp').description('Ramp CLI').version('0.1.0');
+program.name('ramp').description('Ramp CLI').version(readCliPackageVersion());
 configureRampHelp(program);
 program.optionsGroup('Global options:');
 program
@@ -632,18 +634,14 @@ program
   .option('--email <email>', 'Email address for login')
   .option('--device-name <name>', 'Override the device name shown for this CLI session')
   .option('--token <token>', 'Use an existing API token directly')
-  .option(
-    '--api-url <url>',
-    'Ramp API base URL',
-    process.env.RAMP_API_URL ?? 'http://127.0.0.1:8000',
-  )
+  .option('--api-url <url>', 'Ramp API base URL', DEFAULT_API_URL)
   .action(
     async (options: { email?: string; deviceName?: string; token?: string; apiUrl?: string }) => {
       const code = await runLoginCommand({
         email: options.email,
         deviceName: options.deviceName,
         token: options.token,
-        apiUrl: options.apiUrl ?? process.env.RAMP_API_URL ?? 'http://127.0.0.1:8000',
+        apiUrl: options.apiUrl ?? DEFAULT_API_URL,
         ...globals(),
       });
 
@@ -887,11 +885,7 @@ program
   .option('--json', 'Output JSON result')
   .option('--strict', 'Treat warnings as errors')
   .option('--server <id-or-name>', 'Validate with server context for collision checks')
-  .option(
-    '--api-url <url>',
-    'Ramp API base URL',
-    process.env.RAMP_API_URL ?? 'http://127.0.0.1:8000',
-  )
+  .option('--api-url <url>', 'Ramp API base URL', DEFAULT_API_URL)
   .action(
     async (
       file: string | undefined,
@@ -907,7 +901,7 @@ program
         server: options.server,
         json: options.json === true,
         strict: options.strict === true,
-        apiUrl: options.apiUrl ?? process.env.RAMP_API_URL ?? 'http://127.0.0.1:8000',
+        apiUrl: options.apiUrl ?? DEFAULT_API_URL,
         ...globals(),
       });
 
@@ -1014,3 +1008,15 @@ program
   );
 
 await program.parseAsync(process.argv);
+
+function readCliPackageVersion(): string {
+  try {
+    const packageJson = JSON.parse(
+      readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+    ) as { version?: unknown };
+
+    return typeof packageJson.version === 'string' ? packageJson.version : '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}

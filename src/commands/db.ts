@@ -48,12 +48,12 @@ export async function runDbBackupCommand(
       },
     );
 
-    const payload = await listResponse.json();
-
     if (!listResponse.ok) {
       process.stderr.write(`${await describeApiError(listResponse, 'Failed to list backups')}\n`);
       return 1;
     }
+
+    const payload = await listResponse.json();
 
     if (options.json) {
       process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
@@ -78,12 +78,21 @@ export async function runDbBackupCommand(
     },
   );
 
-  const payload = await response.json();
-
-  if (!response.ok || payload.ok !== true) {
+  if (!response.ok) {
     process.stderr.write(
       `Failed to create backup: ${await describeApiError(response, 'Failed to create backup')}\n`,
     );
+    return 1;
+  }
+
+  const payload = (await response.json()) as {
+    ok?: boolean;
+    backup?: { id?: string };
+    errors?: string[];
+  };
+
+  if (payload.ok !== true) {
+    process.stderr.write(`${payload.errors?.[0] ?? 'Failed to create backup.'}\n`);
     return 1;
   }
 
@@ -129,12 +138,12 @@ export async function runDbRestoreCommand(
       },
     );
 
-    const payload = await listResponse.json();
-
     if (!listResponse.ok) {
       process.stderr.write(`${await describeApiError(listResponse, 'Failed to list backups')}\n`);
       return 1;
     }
+
+    const payload = await listResponse.json();
 
     const latest = (payload.data ?? [])[0] as BackupItem | undefined;
 
@@ -182,12 +191,20 @@ export async function runDbRestoreCommand(
     },
   );
 
-  const payload = await response.json();
-
-  if (!response.ok || payload.ok !== true) {
+  if (!response.ok) {
     process.stderr.write(
       `Failed to restore backup: ${await describeApiError(response, 'Failed to restore backup')}\n`,
     );
+    return 1;
+  }
+
+  const payload = (await response.json()) as {
+    ok?: boolean;
+    errors?: string[];
+  };
+
+  if (payload.ok !== true) {
+    process.stderr.write(`${payload.errors?.[0] ?? 'Failed to restore backup.'}\n`);
     return 1;
   }
 
