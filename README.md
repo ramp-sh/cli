@@ -201,3 +201,20 @@ node dist/bin.js validate fixtures/valid.ramp.yaml
 
 For local development against a Ramp backend, point the CLI at a reachable API
 instance with `--api-url` or `RAMP_API_URL`.
+
+## Quality Checks
+
+```bash
+pnpm format
+pnpm lint
+pnpm check
+pnpm verify
+```
+
+`pnpm install` also configures repo-local git hooks via `.githooks/`:
+
+- `pre-commit` runs Biome formatting checks on staged files
+- `pre-push` runs `pnpm typecheck` and `pnpm test`
+
+The repository uses Biome as a formatter baseline in CI today. The `lint`
+command is available for deeper cleanup as the codebase evolves.

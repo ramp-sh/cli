@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+
+pnpm exec biome check --write --linter-enabled=false --assist-enabled=false --staged
