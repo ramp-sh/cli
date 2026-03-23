@@ -1,5 +1,11 @@
 # Ramp CLI
 
+[![npm version](https://img.shields.io/npm/v/%40ramp-sh%2Fcli?style=flat-square)](https://www.npmjs.com/package/@ramp-sh/cli)
+[![npm downloads](https://img.shields.io/npm/dm/%40ramp-sh%2Fcli?style=flat-square)](https://www.npmjs.com/package/@ramp-sh/cli)
+[![CI](https://img.shields.io/github/actions/workflow/status/ramp-sh/cli/ci.yml?branch=main&style=flat-square)](https://github.com/ramp-sh/cli/actions/workflows/ci.yml)
+[![license](https://img.shields.io/github/license/ramp-sh/cli?style=flat-square)](https://github.com/ramp-sh/cli/blob/main/LICENSE)
+[![node](https://img.shields.io/badge/node-%3E%3D24-339933?style=flat-square&logo=node.js&logoColor=white)](https://github.com/ramp-sh/cli/blob/main/package.json)
+
 Public command-line client for Ramp.
 
 This repository contains the CLI only. It talks to the hosted Ramp API, while
