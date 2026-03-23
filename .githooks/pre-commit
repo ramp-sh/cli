@@ -1,4 +1,24 @@
 #!/bin/sh
 set -eu
 
-pnpm exec biome check --write --linter-enabled=false --assist-enabled=false --staged
+staged_files="$(git diff --cached --name-only --diff-filter=ACMR)"
+biome_files="$(
+    git diff --cached --name-only --diff-filter=ACMR -- \
+        ':(glob)src/**/*.ts' \
+        ':(glob)scripts/**/*.mjs' \
+        ':(glob)tests/**/*.mjs' \
+        ':(glob)*.json' \
+        ':(glob).github/**/*.yml'
+)"
+
+if [ -z "$staged_files" ]; then
+    exit 0
+fi
+
+if [ -z "$biome_files" ]; then
+    exit 0
+fi
+
+# Paths in this repo do not contain spaces, so splitting on newlines here is acceptable.
+# shellcheck disable=SC2086
+pnpm exec biome check --write --linter-enabled=false --assist-enabled=false $biome_files
