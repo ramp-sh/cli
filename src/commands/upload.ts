@@ -126,10 +126,21 @@ export async function runUploadCommand(options: UploadCommandOptions): Promise<n
       },
     );
 
+    if (!response.ok) {
+      const errors = [await describeApiError(response, 'Upload failed')];
+      process.stderr.write(`${statusLine('error', 'Upload failed:')}\n`);
+
+      for (const err of errors) {
+        process.stderr.write(`${paint('·', 'red', 'stderr')} ${err}\n`);
+      }
+
+      return 1;
+    }
+
     const payload = (await response.json()) as UploadResponse;
 
-    if (!response.ok || payload.ok !== true) {
-      const errors = payload.errors ?? [await describeApiError(response, 'Upload failed')];
+    if (payload.ok !== true) {
+      const errors = payload.errors ?? ['Upload failed.'];
       process.stderr.write(`${statusLine('error', 'Upload failed:')}\n`);
 
       for (const err of errors) {

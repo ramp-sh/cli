@@ -42,21 +42,43 @@ function writeCapture(entry) {
   writeFileSync(capturePath, `${JSON.stringify(current, null, 2)}\n`, 'utf8');
 }
 
+async function serializeBody(body) {
+  if (typeof body === 'string') {
+    try {
+      return JSON.parse(body);
+    } catch {
+      return body;
+    }
+  }
+
+  if (body instanceof FormData) {
+    const entries = {};
+
+    for (const [key, value] of body.entries()) {
+      if (typeof value === 'string') {
+        entries[key] = value;
+        continue;
+      }
+
+      entries[key] = {
+        name: value.name,
+        type: value.type,
+        size: value.size,
+      };
+    }
+
+    return { __formData: entries };
+  }
+
+  return null;
+}
+
 globalThis.fetch = async (input, init = {}) => {
   const url =
     typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
   const method = (init.method ?? 'GET').toUpperCase();
   const headers = normalizeHeaders(init.headers);
-  const rawBody = typeof init.body === 'string' ? init.body : null;
-  let parsedBody = rawBody;
-
-  if (typeof rawBody === 'string') {
-    try {
-      parsedBody = JSON.parse(rawBody);
-    } catch {
-      parsedBody = rawBody;
-    }
-  }
+  const parsedBody = await serializeBody(init.body);
 
   writeCapture({
     url,

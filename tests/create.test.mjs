@@ -99,3 +99,25 @@ test('create command rejects selecting a non-active server', async () => {
     await rm(tempDir, { recursive: true, force: true });
   }
 });
+
+test('interactive create source cancellation stays cancelled', () => {
+  const script = `
+    import assert from 'node:assert/strict';
+    import { resolveInteractiveCreateSourceSelection } from ${JSON.stringify(path.join(rootDir, 'src', 'lib', 'create-source.ts'))};
+
+    assert.equal(resolveInteractiveCreateSourceSelection('repo'), 'repo');
+    assert.equal(resolveInteractiveCreateSourceSelection('upload'), 'upload');
+    assert.equal(resolveInteractiveCreateSourceSelection(null), null);
+  `;
+
+  const result = spawnSync(
+    process.execPath,
+    ['--experimental-strip-types', '--input-type=module', '-e', script],
+    {
+      cwd: rootDir,
+      encoding: 'utf8',
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+});

@@ -16,7 +16,7 @@ import { runDashboardCommand, runOpenCommand } from './commands/open.js';
 import { runLogoutCommand } from './commands/logout.js';
 import { runReleasesCommand } from './commands/releases.js';
 import { runRollbackCommand } from './commands/rollback.js';
-import { runDbBackupCommand, runDbRestoreCommand } from './commands/db.js';
+import { runDbBackupCommand, runDbImportCommand, runDbRestoreCommand } from './commands/db.js';
 import { runSavedCommand } from './commands/run.js';
 import { runUploadCommand } from './commands/upload.js';
 import { runServersCommand } from './commands/servers.js';
@@ -798,6 +798,39 @@ program
         server: options.server,
         backupId,
         latest: options.latest === true,
+        json: options.json === true,
+        apiUrl: options.apiUrl,
+        ...globals(),
+      });
+
+      process.exitCode = code;
+    },
+  );
+
+program
+  .command('db:import')
+  .description('Import a local database dump into a Ramp SQL resource')
+  .helpGroup('Project workflow:')
+  .option('--file <path>', 'Path to a local .dump, .sql, or .sql.gz file')
+  .option('--resource <name>', 'Target SQL resource name')
+  .option('--app <stack>', 'Override stack name')
+  .option('--server <name>', 'Filter by server name')
+  .option('--json', 'Output JSON result')
+  .option('--api-url <url>', 'Ramp API base URL')
+  .action(
+    async (options: {
+      file?: string;
+      resource?: string;
+      app?: string;
+      server?: string;
+      json?: boolean;
+      apiUrl?: string;
+    }) => {
+      const code = await runDbImportCommand({
+        file: options.file,
+        resource: options.resource,
+        app: options.app,
+        server: options.server,
         json: options.json === true,
         apiUrl: options.apiUrl,
         ...globals(),

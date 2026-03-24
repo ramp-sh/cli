@@ -213,3 +213,60 @@ test('upload sends the selected workspace header on the action request', async (
     await rm(tempDir, { recursive: true, force: true });
   }
 });
+
+test('upload preserves API error messages on failed uploads', async () => {
+  const tempDir = makeTempDir();
+  const homeDir = path.join(tempDir, 'home');
+
+  try {
+    seedCredentials(homeDir, 'https://api.example.test', 'ws_pro');
+    seedProjectLink(tempDir);
+    writeFileSync(
+      path.join(tempDir, 'ramp.yaml'),
+      [
+        'stack: go-api',
+        'services:',
+        '  web:',
+        '    type: web',
+        '    runtime: go@1.24',
+        '    port: 8080',
+      ].join('\n'),
+      'utf8',
+    );
+    writeFileSync(path.join(tempDir, 'main.go'), 'package main\nfunc main() {}\n', 'utf8');
+
+    const result = runCli(['upload'], tempDir, {
+      HOME: homeDir,
+      RAMP_FETCH_FIXTURES: JSON.stringify([
+        {
+          url: 'https://api.example.test/api/v1/apps/app_123',
+          method: 'GET',
+          status: 200,
+          body: {
+            data: {
+              id: 'app_123',
+              workspace_id: 'ws_pro',
+              stack: 'go-api',
+              status: 'live',
+              deploy_mode: 'upload',
+            },
+          },
+        },
+        {
+          url: 'https://api.example.test/api/v1/apps/app_123/upload',
+          method: 'POST',
+          status: 422,
+          body: {
+            message: 'Upload archive is invalid.',
+          },
+        },
+      ]),
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Upload archive is invalid\./);
+    assert.doesNotMatch(result.stderr, /Upload failed \(HTTP 422\)/);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});

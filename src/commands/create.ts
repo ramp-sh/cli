@@ -14,6 +14,7 @@ import { selectWithArrows } from '../lib/select.js';
 import { findConfigFile } from '../lib/find-config-file.js';
 import { ensureLocalOctaneReady } from '../lib/octane-preflight.js';
 import { createProjectArchive } from '../lib/archive.js';
+import { resolveInteractiveCreateSourceSelection } from '../lib/create-source.js';
 import { fileExists } from '../lib/file-exists.js';
 import { formatFileSize } from '../lib/format-size.js';
 import { requireAuth } from '../lib/require-auth.js';
@@ -144,22 +145,18 @@ export async function runCreateCommand(options: CreateCommandOptions): Promise<n
 }
 
 async function resolveSourceType(options: CreateCommandOptions): Promise<'repo' | 'upload' | null> {
-  // Explicit flag
-  if (options.source === 'repo') return 'repo';
-  if (options.source === 'upload') return 'upload';
+  if (options.source === 'repo') {
+    return 'repo';
+  }
 
-  // Non-interactive: default based on context
+  if (options.source === 'upload') {
+    return 'upload';
+  }
+
   if (!process.stdin.isTTY || options.json) {
     const hasGit = await fileExists(path.join(process.cwd(), '.git'));
     return hasGit ? 'repo' : 'upload';
   }
-
-  // Interactive: detect and suggest
-  const hasGit = await fileExists(path.join(process.cwd(), '.git'));
-  const hasConfig = (await findConfigFile()) !== null;
-
-  // Smart default: .git → repo, ramp.yaml without .git → upload
-  const defaultSource = hasGit ? 'repo' : hasConfig ? 'upload' : 'repo';
 
   const selected = await selectWithArrows('App source', [
     {
@@ -174,7 +171,7 @@ async function resolveSourceType(options: CreateCommandOptions): Promise<'repo' 
     },
   ]);
 
-  return selected ?? defaultSource;
+  return resolveInteractiveCreateSourceSelection(selected) ?? null;
 }
 
 async function createUploadApp(
