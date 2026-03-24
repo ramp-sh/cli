@@ -239,12 +239,7 @@ test('upload excludes target directory for rust projects', async () => {
     );
     writeFileSync(
       path.join(tempDir, 'Cargo.toml'),
-      [
-        '[package]',
-        'name = "rust-test"',
-        'version = "0.1.0"',
-        'edition = "2024"',
-      ].join('\n'),
+      ['[package]', 'name = "rust-test"', 'version = "0.1.0"', 'edition = "2024"'].join('\n'),
       'utf8',
     );
     mkdirSync(path.join(tempDir, 'src'), { recursive: true });
