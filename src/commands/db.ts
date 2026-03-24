@@ -309,7 +309,9 @@ export async function runDbImportCommand(
   );
 
   if (!detailsResponse.ok) {
-    process.stderr.write(`${await describeApiError(detailsResponse, 'Failed to load app details')}\n`);
+    process.stderr.write(
+      `${await describeApiError(detailsResponse, 'Failed to load app details')}\n`,
+    );
     return 1;
   }
 
@@ -391,7 +393,9 @@ export async function runDbImportCommand(
   );
 
   if (!response.ok) {
-    process.stderr.write(`${await describeApiError(response, 'Failed to queue database import')}\n`);
+    process.stderr.write(
+      `${await describeApiError(response, 'Failed to queue database import')}\n`,
+    );
     return 1;
   }
 
@@ -410,10 +414,15 @@ export async function runDbImportCommand(
   if (!options.quiet) {
     process.stdout.write(
       `${box([
-        statusLine('success', `Database import queued for ${paint(resolved.context.app.stack, 'bold')}`),
+        statusLine(
+          'success',
+          `Database import queued for ${paint(resolved.context.app.stack, 'bold')}`,
+        ),
         keyHint(`Import ID: ${payload.import?.id ?? 'unknown'}`),
         keyHint(`Resource: ${payload.import?.resource ?? resource.name}`),
-        keyHint(`Format: ${describeFormat(payload.import?.restore_format as ImportFormat | undefined ?? localFormat)}`),
+        keyHint(
+          `Format: ${describeFormat((payload.import?.restore_format as ImportFormat | undefined) ?? localFormat)}`,
+        ),
         keyHint(`Upload size: ${formatBytes(fileSize)}`),
       ])}\n`,
     );

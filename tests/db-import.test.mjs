@@ -26,7 +26,11 @@ function makeTempDir(prefix = 'ramp-cli-db-import-test-') {
   return mkdtempSync(path.join(os.tmpdir(), prefix));
 }
 
-function seedCredentials(homeDir, apiUrl = 'https://api.example.test', selectedWorkspaceId = 'ws_pro') {
+function seedCredentials(
+  homeDir,
+  apiUrl = 'https://api.example.test',
+  selectedWorkspaceId = 'ws_pro',
+) {
   const configDir = path.join(homeDir, '.config', 'ramp');
   mkdirSync(configDir, { recursive: true });
   writeFileSync(
@@ -231,50 +235,54 @@ test('db:import returns JSON output for queued imports', async () => {
     seedCredentials(homeDir);
     seedProjectLink(tempDir, 'app_123', 'go-api');
 
-    const result = runCli(['db:import', '--file', dumpPath, '--resource', 'db', '--json'], tempDir, {
-      HOME: homeDir,
-      RAMP_FETCH_FIXTURES: JSON.stringify([
-        {
-          url: 'https://api.example.test/api/v1/apps/app_123',
-          method: 'GET',
-          status: 200,
-          body: {
-            data: {
-              id: 'app_123',
-              workspace_id: 'ws_pro',
-              stack: 'go-api',
-              status: 'live',
+    const result = runCli(
+      ['db:import', '--file', dumpPath, '--resource', 'db', '--json'],
+      tempDir,
+      {
+        HOME: homeDir,
+        RAMP_FETCH_FIXTURES: JSON.stringify([
+          {
+            url: 'https://api.example.test/api/v1/apps/app_123',
+            method: 'GET',
+            status: 200,
+            body: {
+              data: {
+                id: 'app_123',
+                workspace_id: 'ws_pro',
+                stack: 'go-api',
+                status: 'live',
+              },
             },
           },
-        },
-        {
-          url: 'https://api.example.test/api/v1/apps/app_123',
-          method: 'GET',
-          status: 200,
-          body: {
-            data: {
-              id: 'app_123',
-              stack: 'go-api',
-              sql_resources: [{ name: 'db', type: 'mysql' }],
+          {
+            url: 'https://api.example.test/api/v1/apps/app_123',
+            method: 'GET',
+            status: 200,
+            body: {
+              data: {
+                id: 'app_123',
+                stack: 'go-api',
+                sql_resources: [{ name: 'db', type: 'mysql' }],
+              },
             },
           },
-        },
-        {
-          url: 'https://api.example.test/api/v1/apps/app_123/db/imports',
-          method: 'POST',
-          status: 202,
-          body: {
-            ok: true,
-            import: {
-              id: 'imp_456',
-              status: 'pending',
-              resource: 'db',
-              restore_format: 'sql.gz',
+          {
+            url: 'https://api.example.test/api/v1/apps/app_123/db/imports',
+            method: 'POST',
+            status: 202,
+            body: {
+              ok: true,
+              import: {
+                id: 'imp_456',
+                status: 'pending',
+                resource: 'db',
+                restore_format: 'sql.gz',
+              },
             },
           },
-        },
-      ]),
-    });
+        ]),
+      },
+    );
 
     assert.equal(result.status, 0);
 
