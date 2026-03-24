@@ -113,6 +113,13 @@ Initialize a new `ramp.yaml`:
 ```bash
 ramp init
 ramp init --template laravel
+ramp init --template rails
+ramp init --template ruby
+ramp init --template bun
+ramp init --template elysia
+ramp init --template rust
+ramp init --template axum
+ramp init --template reverb
 ramp init --template laravel-octane
 ramp init --template adonis
 ramp init --template nextjs
@@ -189,6 +196,14 @@ pnpm dlx @ramp-sh/cli validate --strict
 
 - `custom`
 - `laravel`
+- `rails`
+- `ruby`
+- `bun`
+- `elysia`
+- `rust`
+- `axum`
+- `reverb`
+- `laravel-octane`
 - `node-api`
 - `nextjs`
 - `adonis`

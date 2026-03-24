@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
 import { mkdtempSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import os from 'node:os';
@@ -209,6 +210,86 @@ test('upload sends the selected workspace header on the action request', async (
     const captures = JSON.parse(readFileSync(capturePath, 'utf8'));
     assert.equal(captures[0].headers['x-ramp-workspace'], 'ws_pro');
     assert.equal(captures[1].headers['x-ramp-workspace'], 'ws_pro');
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('upload excludes target directory for rust projects', async () => {
+  const tempDir = makeTempDir();
+  const homeDir = path.join(tempDir, 'home');
+
+  try {
+    seedCredentials(homeDir, 'https://api.example.test', 'ws_pro');
+    seedProjectLink(tempDir);
+    writeFileSync(
+      path.join(tempDir, 'ramp.yaml'),
+      [
+        'stack: rust-test',
+        'services:',
+        '  web:',
+        '    type: web',
+        '    runtime: rust@1.94',
+        '    build: cargo build --release',
+        '    start: ./target/release/rust-test',
+        '    port: 3000',
+        '    health: /',
+      ].join('\n'),
+      'utf8',
+    );
+    writeFileSync(
+      path.join(tempDir, 'Cargo.toml'),
+      [
+        '[package]',
+        'name = "rust-test"',
+        'version = "0.1.0"',
+        'edition = "2024"',
+      ].join('\n'),
+      'utf8',
+    );
+    mkdirSync(path.join(tempDir, 'src'), { recursive: true });
+    writeFileSync(path.join(tempDir, 'src', 'main.rs'), 'fn main() {}\n', 'utf8');
+    mkdirSync(path.join(tempDir, 'target', 'debug'), { recursive: true });
+    writeFileSync(path.join(tempDir, 'target', 'debug', 'rust-test'), randomBytes(2 * 1024 * 1024));
+
+    const result = runCli(['upload'], tempDir, {
+      HOME: homeDir,
+      RAMP_FETCH_FIXTURES: JSON.stringify([
+        {
+          url: 'https://api.example.test/api/v1/apps/app_123',
+          method: 'GET',
+          status: 200,
+          body: {
+            data: {
+              id: 'app_123',
+              workspace_id: 'ws_pro',
+              stack: 'rust-test',
+              status: 'live',
+              deploy_mode: 'upload',
+            },
+          },
+        },
+        {
+          url: 'https://api.example.test/api/v1/apps/app_123/upload',
+          method: 'POST',
+          status: 200,
+          body: {
+            ok: true,
+            deploy: {
+              id: 'dep_123',
+              release_id: 'upl_123',
+              status: 'pending',
+              trigger: 'cli_upload',
+              config_synced: false,
+            },
+          },
+        },
+      ]),
+    });
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Archive: (?:\d+ B|\d+\.\d+ KB)/);
+    assert.doesNotMatch(result.stdout, /Archive: \d+\.\d+ MB/);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }

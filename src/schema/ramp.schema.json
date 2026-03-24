@@ -53,6 +53,8 @@
                         "node@24",
                         "node@25",
                         "node@lts",
+                        "bun@1.2",
+                        "bun@1.3",
                         "go@1.24",
                         "go@1.25",
                         "go@1.26",
@@ -61,7 +63,13 @@
                         "php@8.5",
                         "python@3.12",
                         "python@3.13",
-                        "python@3.14"
+                        "python@3.14",
+                        "ruby@3.3",
+                        "ruby@3.4",
+                        "ruby@4.0",
+                        "rust@1.92",
+                        "rust@1.93",
+                        "rust@1.94"
                     ]
                 },
                 "build": {

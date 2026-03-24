@@ -29,6 +29,13 @@ export async function createProjectArchive(
   // Default excludes (overridable via !negation in .rampignore)
   excludePatterns.push(...DEFAULT_EXCLUDES);
 
+  // Rust projects compile into ./target, which should never be uploaded.
+  // Keep this scoped to Rust roots so unrelated projects using "target"
+  // as a meaningful source directory are unaffected.
+  if (await fileExists(path.join(projectRoot, 'Cargo.toml'))) {
+    excludePatterns.push('target');
+  }
+
   // .gitignore (honored even without .git/)
   const gitignorePath = path.join(projectRoot, '.gitignore');
   if (await fileExists(gitignorePath)) {

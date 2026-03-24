@@ -72,7 +72,7 @@ program
   .description('Create a starter ramp.yaml in current directory')
   .option(
     '--template <name>',
-    'Template: custom|laravel|laravel-octane|node-api|nextjs|static|worker|adonis',
+    'Template: custom|laravel|rails|ruby|bun|elysia|rust|axum|reverb|laravel-octane|node-api|nextjs|static|worker|adonis',
   )
   .option('-y, --yes', 'Use defaults without prompts')
   .option('--print', 'Print generated YAML to stdout')

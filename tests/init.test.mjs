@@ -65,6 +65,158 @@ test('init laravel-octane template writes octane defaults', async () => {
   }
 });
 
+test('init ruby template writes sane defaults', async () => {
+  const tempDir = makeTempDir();
+
+  try {
+    const result = runCli(['init', '--template', 'ruby', '--yes'], tempDir);
+
+    assert.equal(result.status, 0);
+
+    const yaml = readFileSync(path.join(tempDir, 'ramp.yaml'), 'utf8');
+
+    assert.match(yaml, /runtime: ruby@4\.0/);
+    assert.match(yaml, /start: bundle exec ruby app\.rb -p 4567/);
+    assert.match(yaml, /port: 4567/);
+    assert.match(yaml, /RACK_ENV: production/);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('init bun template writes sane defaults', async () => {
+  const tempDir = makeTempDir();
+
+  try {
+    const result = runCli(['init', '--template', 'bun', '--yes'], tempDir);
+
+    assert.equal(result.status, 0);
+
+    const yaml = readFileSync(path.join(tempDir, 'ramp.yaml'), 'utf8');
+
+    assert.match(yaml, /runtime: bun@1\.3/);
+    assert.match(yaml, /start: bun run index\.ts/);
+    assert.match(yaml, /port: 3000/);
+    assert.match(yaml, /health: \//);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('init elysia template writes sane defaults', async () => {
+  const tempDir = makeTempDir();
+
+  try {
+    const result = runCli(['init', '--template', 'elysia', '--yes'], tempDir);
+
+    assert.equal(result.status, 0);
+
+    const yaml = readFileSync(path.join(tempDir, 'ramp.yaml'), 'utf8');
+
+    assert.match(yaml, /runtime: bun@1\.3/);
+    assert.match(yaml, /start: bun run src\/index\.ts/);
+    assert.match(yaml, /port: 3000/);
+    assert.match(yaml, /health: \//);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('init rust template writes sane defaults', async () => {
+  const tempDir = makeTempDir();
+
+  try {
+    const result = runCli(['init', '--template', 'rust', '--yes'], tempDir);
+
+    assert.equal(result.status, 0);
+
+    const yaml = readFileSync(path.join(tempDir, 'ramp.yaml'), 'utf8');
+
+    assert.match(yaml, /runtime: rust@1\.94/);
+    assert.match(yaml, /build: cargo build --release/);
+    assert.match(yaml, /start: \.\/target\/release\/[a-z0-9-]+/);
+    assert.match(yaml, /port: 3000/);
+    assert.match(yaml, /health: \//);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('init axum template writes sane defaults', async () => {
+  const tempDir = makeTempDir();
+
+  try {
+    const result = runCli(['init', '--template', 'axum', '--yes'], tempDir);
+
+    assert.equal(result.status, 0);
+
+    const yaml = readFileSync(path.join(tempDir, 'ramp.yaml'), 'utf8');
+
+    assert.match(yaml, /runtime: rust@1\.94/);
+    assert.match(yaml, /build: cargo build --release/);
+    assert.match(yaml, /start: \.\/target\/release\/[a-z0-9-]+/);
+    assert.match(yaml, /port: 3000/);
+    assert.match(yaml, /health: \//);
+    assert.match(yaml, /RUST_LOG: info/);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('init rails template writes sane defaults', async () => {
+  const tempDir = makeTempDir();
+
+  try {
+    const result = runCli(['init', '--template', 'rails', '--yes'], tempDir);
+
+    assert.equal(result.status, 0);
+
+    const yaml = readFileSync(path.join(tempDir, 'ramp.yaml'), 'utf8');
+
+    assert.match(yaml, /runtime: ruby@4\.0/);
+    assert.match(yaml, /build: bundle exec rails assets:precompile/);
+    assert.match(yaml, /start: bundle exec puma -C config\/puma\.rb/);
+    assert.match(yaml, /migrate: bundle exec rails db:migrate/);
+    assert.match(yaml, /health: \/up/);
+    assert.match(
+      yaml,
+      /worker:\n    type: worker\n    runtime: ruby@4\.0\n    start: bundle exec sidekiq/,
+    );
+    assert.match(yaml, /DATABASE_URL: \$\{db\.url\}/);
+    assert.match(yaml, /REDIS_URL: \$\{cache\.url\}/);
+    assert.match(yaml, /RAILS_ENV: production/);
+    assert.match(yaml, /RACK_ENV: production/);
+    assert.match(yaml, /RAILS_SERVE_STATIC_FILES: "1"/);
+    assert.match(yaml, /SECRET_KEY_BASE: input_yours/);
+    assert.match(yaml, /resources:\n  db:\n    type: postgres@17\n  cache:\n    type: redis@7/);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('init reverb template writes sane defaults', async () => {
+  const tempDir = makeTempDir();
+
+  try {
+    const result = runCli(['init', '--template', 'reverb', '--yes'], tempDir);
+
+    assert.equal(result.status, 0);
+
+    const yaml = readFileSync(path.join(tempDir, 'ramp.yaml'), 'utf8');
+
+    assert.match(yaml, /reverb:\n    type: web/);
+    assert.match(yaml, /runtime: php@8\.4/);
+    assert.match(yaml, /start: php artisan reverb:start --host=127\.0\.0\.1 --port=8080/);
+    assert.match(yaml, /port: 8080/);
+    assert.match(yaml, /preview: false/);
+    assert.match(yaml, /domains:\n      - ws\.example\.com/);
+    assert.match(yaml, /REVERB_HOST: \$\{reverb\.domain\}/);
+    assert.match(yaml, /REVERB_SCHEME: https/);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
 test('init returns a clear error in non-interactive mode without --yes', async () => {
   const tempDir = makeTempDir();
 

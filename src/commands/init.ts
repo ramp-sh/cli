@@ -30,13 +30,20 @@ type InitOptions = {
 type Template =
   | 'custom'
   | 'laravel'
+  | 'rails'
+  | 'ruby'
+  | 'bun'
+  | 'elysia'
+  | 'rust'
+  | 'axum'
+  | 'reverb'
   | 'laravel-octane'
   | 'node-api'
   | 'nextjs'
   | 'static'
   | 'worker'
   | 'adonis';
-type Runtime = 'node' | 'php';
+type Runtime = 'node' | 'php' | 'bun' | 'rust';
 type ServiceKind = 'web' | 'worker' | 'cron';
 type ResourceKind = 'postgres' | 'redis';
 type ExistingFileMode = 'overwrite' | 'merge' | 'cancel';
@@ -81,7 +88,7 @@ export async function runInitCommand(options: InitOptions): Promise<number> {
 
   if (options.template && template === null) {
     return outputError(
-      'Unknown template. Use one of: custom, laravel, laravel-octane, node-api, nextjs, static, worker, adonis',
+      'Unknown template. Use one of: custom, laravel, rails, ruby, bun, elysia, rust, axum, reverb, laravel-octane, node-api, nextjs, static, worker, adonis',
       options,
     );
   }
@@ -208,6 +215,41 @@ async function chooseTemplate(): Promise<Template | null> {
       value: 'laravel' as const,
     },
     {
+      label: 'Ruby',
+      description: 'Plain Ruby app with Bundler and a single web service',
+      value: 'ruby' as const,
+    },
+    {
+      label: 'Bun',
+      description: 'Plain Bun app with an explicit runtime command',
+      value: 'bun' as const,
+    },
+    {
+      label: 'Elysia',
+      description: 'Bun-first web service with Elysia defaults',
+      value: 'elysia' as const,
+    },
+    {
+      label: 'Rust',
+      description: 'Plain Rust app with Cargo and a single binary service',
+      value: 'rust' as const,
+    },
+    {
+      label: 'Axum',
+      description: 'Rust web service with Axum-friendly Cargo defaults',
+      value: 'axum' as const,
+    },
+    {
+      label: 'Rails',
+      description: 'Rails web + Sidekiq worker + Postgres + Redis',
+      value: 'rails' as const,
+    },
+    {
+      label: 'Laravel Reverb',
+      description: 'Dedicated WebSocket service with preview routing disabled',
+      value: 'reverb' as const,
+    },
+    {
       label: 'Laravel Octane',
       description: 'Laravel web + queue worker + FrankenPHP Octane defaults',
       value: 'laravel-octane' as const,
@@ -270,6 +312,34 @@ async function buildTemplateConfig(
     return buildLaravelTemplate(stack, options, rl);
   }
 
+  if (template === 'ruby') {
+    return buildRubyTemplate(stack, options, rl);
+  }
+
+  if (template === 'bun') {
+    return buildBunTemplate(stack, options, rl);
+  }
+
+  if (template === 'elysia') {
+    return buildElysiaTemplate(stack, options, rl);
+  }
+
+  if (template === 'rust') {
+    return buildRustTemplate(stack, options, rl);
+  }
+
+  if (template === 'axum') {
+    return buildAxumTemplate(stack, options, rl);
+  }
+
+  if (template === 'rails') {
+    return buildRailsTemplate(stack, options, rl);
+  }
+
+  if (template === 'reverb') {
+    return buildReverbTemplate(stack, options, rl);
+  }
+
   if (template === 'laravel-octane') {
     return buildLaravelOctaneTemplate(stack, options, rl);
   }
@@ -314,6 +384,16 @@ async function buildCustomTemplate(
           label: 'PHP',
           description: 'php@8.4',
           value: 'php' as const,
+        },
+        {
+          label: 'Bun',
+          description: 'bun@1.3',
+          value: 'bun' as const,
+        },
+        {
+          label: 'Rust',
+          description: 'rust@1.94',
+          value: 'rust' as const,
         },
       ]);
 
@@ -367,11 +447,28 @@ async function buildCustomTemplate(
               port: 3000,
               health: '/health',
             }
-          : {
-              type: 'web',
-              runtime: 'php@8.4',
-              health: '/up',
-            };
+          : runtime === 'php'
+            ? {
+                type: 'web',
+                runtime: 'php@8.4',
+                health: '/up',
+              }
+            : runtime === 'bun'
+              ? {
+                  type: 'web',
+                  runtime: 'bun@1.3',
+                  start: 'bun run index.ts',
+                  port: 3000,
+                  health: '/',
+                }
+              : {
+                  type: 'web',
+                  runtime: 'rust@1.94',
+                  build: 'cargo build --release',
+                  start: `./target/release/${stack}`,
+                  port: 3000,
+                  health: '/',
+                };
     }
 
     if (service === 'worker') {
@@ -382,11 +479,24 @@ async function buildCustomTemplate(
               runtime: 'node@24',
               start: 'node worker.js',
             }
-          : {
-              type: 'worker',
-              runtime: 'php@8.4',
-              start: 'php artisan queue:work',
-            };
+          : runtime === 'bun'
+            ? {
+                type: 'worker',
+                runtime: 'bun@1.3',
+                start: 'bun run worker.ts',
+              }
+            : {
+                type: 'worker',
+                runtime: runtime === 'php' ? 'php@8.4' : 'rust@1.94',
+                ...(runtime === 'php'
+                  ? {
+                      start: 'php artisan queue:work',
+                    }
+                  : {
+                      build: 'cargo build --release',
+                      start: `./target/release/${stack}`,
+                    }),
+              };
     }
 
     if (service === 'cron') {
@@ -398,12 +508,27 @@ async function buildCustomTemplate(
               schedule: '*/5 * * * *',
               start: 'node cron.js',
             }
-          : {
-              type: 'cron',
-              runtime: 'php@8.4',
-              schedule: '* * * * *',
-              start: 'php artisan schedule:run',
-            };
+          : runtime === 'php'
+            ? {
+                type: 'cron',
+                runtime: 'php@8.4',
+                schedule: '* * * * *',
+                start: 'php artisan schedule:run',
+              }
+            : runtime === 'bun'
+              ? {
+                  type: 'cron',
+                  runtime: 'bun@1.3',
+                  schedule: '*/5 * * * *',
+                  start: 'bun run cron.ts',
+                }
+              : {
+                  type: 'cron',
+                  runtime: 'rust@1.94',
+                  build: 'cargo build --release',
+                  schedule: '*/5 * * * *',
+                  start: `./target/release/${stack}`,
+                };
     }
   }
 
@@ -543,6 +668,293 @@ async function buildLaravelOctaneTemplate(
   };
 
   return config;
+}
+
+async function buildRubyTemplate(
+  stack: string,
+  options: InitOptions,
+  rl: readline.Interface,
+): Promise<RampConfig | null> {
+  const port = await askForPort(rl, options, 4567, 'Port [4567]: ');
+
+  if (port === null) {
+    return null;
+  }
+
+  const domains = await askForOptionalDomains(rl, options, 'Custom domain (optional): ');
+
+  if (domains === null) {
+    return null;
+  }
+
+  return {
+    stack,
+    services: {
+      web: withOptionalDomains(
+        {
+          type: 'web',
+          runtime: 'ruby@4.0',
+          start: `bundle exec ruby app.rb -p ${port}`,
+          port,
+          env: {
+            RACK_ENV: 'production',
+          },
+        },
+        domains,
+      ),
+    },
+  };
+}
+
+async function buildBunTemplate(
+  stack: string,
+  options: InitOptions,
+  rl: readline.Interface,
+): Promise<RampConfig | null> {
+  const port = await askForPort(rl, options, 3000, 'Port [3000]: ');
+
+  if (port === null) {
+    return null;
+  }
+
+  const domains = await askForOptionalDomains(rl, options, 'Custom domain (optional): ');
+
+  if (domains === null) {
+    return null;
+  }
+
+  return {
+    stack,
+    services: {
+      web: withOptionalDomains(
+        {
+          type: 'web',
+          runtime: 'bun@1.3',
+          start: 'bun run index.ts',
+          port,
+          health: '/',
+        },
+        domains,
+      ),
+    },
+  };
+}
+
+async function buildElysiaTemplate(
+  stack: string,
+  options: InitOptions,
+  rl: readline.Interface,
+): Promise<RampConfig | null> {
+  const port = await askForPort(rl, options, 3000, 'Port [3000]: ');
+
+  if (port === null) {
+    return null;
+  }
+
+  const domains = await askForOptionalDomains(rl, options, 'Custom domain (optional): ');
+
+  if (domains === null) {
+    return null;
+  }
+
+  return {
+    stack,
+    services: {
+      web: withOptionalDomains(
+        {
+          type: 'web',
+          runtime: 'bun@1.3',
+          start: 'bun run src/index.ts',
+          port,
+          health: '/',
+        },
+        domains,
+      ),
+    },
+  };
+}
+
+async function buildRustTemplate(
+  stack: string,
+  options: InitOptions,
+  rl: readline.Interface,
+): Promise<RampConfig | null> {
+  const port = await askForPort(rl, options, 3000, 'Port [3000]: ');
+
+  if (port === null) {
+    return null;
+  }
+
+  const domains = await askForOptionalDomains(rl, options, 'Custom domain (optional): ');
+
+  if (domains === null) {
+    return null;
+  }
+
+  return {
+    stack,
+    services: {
+      web: withOptionalDomains(
+        {
+          type: 'web',
+          runtime: 'rust@1.94',
+          build: 'cargo build --release',
+          start: `./target/release/${stack}`,
+          port,
+          health: '/',
+        },
+        domains,
+      ),
+    },
+  };
+}
+
+async function buildAxumTemplate(
+  stack: string,
+  options: InitOptions,
+  rl: readline.Interface,
+): Promise<RampConfig | null> {
+  const port = await askForPort(rl, options, 3000, 'Port [3000]: ');
+
+  if (port === null) {
+    return null;
+  }
+
+  const domains = await askForOptionalDomains(rl, options, 'Custom domain (optional): ');
+
+  if (domains === null) {
+    return null;
+  }
+
+  return {
+    stack,
+    services: {
+      web: withOptionalDomains(
+        {
+          type: 'web',
+          runtime: 'rust@1.94',
+          build: 'cargo build --release',
+          start: `./target/release/${stack}`,
+          port,
+          health: '/',
+          env: {
+            RUST_LOG: 'info',
+          },
+        },
+        domains,
+      ),
+    },
+  };
+}
+
+async function buildRailsTemplate(
+  stack: string,
+  options: InitOptions,
+  rl: readline.Interface,
+): Promise<RampConfig | null> {
+  const defaultResources: ResourceKind[] = ['postgres', 'redis'];
+  const resources = options.yes
+    ? defaultResources
+    : await selectManyWithArrows(
+        'Rails resources',
+        [
+          { label: 'Postgres', value: 'postgres' as const },
+          { label: 'Redis', value: 'redis' as const },
+        ],
+        defaultResources,
+      );
+
+  if (resources === null) {
+    return null;
+  }
+
+  const resourceMap = buildResourceMap(resources);
+  const domains = await askForOptionalDomains(rl, options, 'Custom domain (optional): ');
+
+  if (domains === null) {
+    return null;
+  }
+
+  const webEnv: Record<string, string> = {
+    RAILS_ENV: 'production',
+    RACK_ENV: 'production',
+    RAILS_SERVE_STATIC_FILES: '1',
+    SECRET_KEY_BASE: 'input_yours',
+  };
+
+  if (resourceMap.db) {
+    webEnv.DATABASE_URL = '${db.url}';
+  }
+
+  if (resourceMap.cache) {
+    webEnv.REDIS_URL = '${cache.url}';
+  }
+
+  const workerEnv = { ...webEnv };
+
+  return {
+    stack,
+    services: {
+      web: withOptionalDomains(
+        {
+          type: 'web',
+          runtime: 'ruby@4.0',
+          build: 'bundle exec rails assets:precompile',
+          start: 'bundle exec puma -C config/puma.rb',
+          migrate: 'bundle exec rails db:migrate',
+          port: 3000,
+          health: '/up',
+          env: webEnv,
+        },
+        domains,
+      ),
+      worker: {
+        type: 'worker',
+        runtime: 'ruby@4.0',
+        start: 'bundle exec sidekiq',
+        env: workerEnv,
+      },
+    },
+    resources: resourceMap,
+  };
+}
+
+async function buildReverbTemplate(
+  stack: string,
+  options: InitOptions,
+  rl: readline.Interface,
+): Promise<RampConfig | null> {
+  const domain = await askForDomain(
+    rl,
+    options,
+    'ws.example.com',
+    'WebSocket domain [ws.example.com]: ',
+  );
+
+  if (domain === null) {
+    return null;
+  }
+
+  return {
+    stack,
+    services: {
+      reverb: {
+        type: 'web',
+        runtime: 'php@8.4',
+        start: 'php artisan reverb:start --host=127.0.0.1 --port=8080',
+        port: 8080,
+        preview: false,
+        domains: [domain],
+        env: {
+          REVERB_SERVER_HOST: '127.0.0.1',
+          REVERB_SERVER_PORT: '8080',
+          REVERB_HOST: '${reverb.domain}',
+          REVERB_PORT: '443',
+          REVERB_SCHEME: 'https',
+        },
+      },
+    },
+  };
 }
 
 async function buildNodeApiTemplate(
@@ -835,6 +1247,33 @@ async function askForOptionalDomains(
   }
 }
 
+async function askForDomain(
+  rl: readline.Interface,
+  options: InitOptions,
+  defaultDomain: string,
+  prompt: string,
+): Promise<string | null> {
+  if (options.yes) {
+    return defaultDomain;
+  }
+
+  while (true) {
+    const answer = await askOrCancel(rl, prompt);
+
+    if (answer === null) {
+      return null;
+    }
+
+    const trimmed = answer.trim() || defaultDomain;
+
+    if (isValidDomain(trimmed)) {
+      return trimmed;
+    }
+
+    process.stderr.write('Enter a bare domain like ws.example.com, without http:// or paths.\n');
+  }
+}
+
 function isValidDomain(value: string): boolean {
   return /^(?!-)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i.test(value);
 }
@@ -999,6 +1438,38 @@ function normalizeTemplate(value: string | undefined): Template | null {
 
   if (normalized === 'laravel') {
     return 'laravel';
+  }
+
+  if (normalized === 'ruby') {
+    return 'ruby';
+  }
+
+  if (normalized === 'bun' || normalized === 'bunjs') {
+    return 'bun';
+  }
+
+  if (normalized === 'elysia' || normalized === 'elysiajs') {
+    return 'elysia';
+  }
+
+  if (normalized === 'rust') {
+    return 'rust';
+  }
+
+  if (normalized === 'axum') {
+    return 'axum';
+  }
+
+  if (normalized === 'rails' || normalized === 'ruby-on-rails' || normalized === 'rubyonrails') {
+    return 'rails';
+  }
+
+  if (
+    normalized === 'reverb' ||
+    normalized === 'laravel-reverb' ||
+    normalized === 'laravelreverb'
+  ) {
+    return 'reverb';
   }
 
   if (
