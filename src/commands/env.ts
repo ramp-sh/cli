@@ -79,6 +79,20 @@ export async function runEnvSet(
     return 1;
   }
 
+  let payload;
+
+  try {
+    payload = await buildEnvEntryPayload(
+      options.key,
+      options.value,
+      await fetchEnvRecipient(context, options.service),
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to prepare env var.';
+    process.stderr.write(`${message}\n`);
+    return 1;
+  }
+
   const response = await fetch(
     buildApiV1Endpoint(context.apiUrl, `/apps/${context.appId}/env/set`),
     {
@@ -90,11 +104,7 @@ export async function runEnvSet(
       }),
       body: JSON.stringify({
         service: options.service,
-        ...(await buildEnvEntryPayload(
-          options.key,
-          options.value,
-          await fetchEnvRecipient(context, options.service),
-        )),
+        ...payload,
       }),
     },
   );
@@ -215,11 +225,19 @@ export async function runEnvPush(options: BaseEnvOptions & { file: string }): Pr
   }
 
   const recipient = await fetchEnvRecipient(context, options.service);
-  const entries = await Promise.all(
-    parseDotEnvContent(content).map((entry) =>
-      buildEnvEntryPayload(entry.key, entry.value, recipient),
-    ),
-  );
+  let entries;
+
+  try {
+    entries = await Promise.all(
+      parseDotEnvContent(content).map((entry) =>
+        buildEnvEntryPayload(entry.key, entry.value, recipient),
+      ),
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to prepare env vars.';
+    process.stderr.write(`${message}\n`);
+    return 1;
+  }
 
   const response = await fetch(
     buildApiV1Endpoint(context.apiUrl, `/apps/${context.appId}/env/import`),

@@ -23,12 +23,12 @@ test('top-level help groups commands into clearer sections', () => {
   assert.match(result.stdout, /Getting started:/);
   assert.match(result.stdout, /Project workflow:/);
   assert.match(result.stdout, /Account & access:/);
-  assert.match(result.stdout, /AI & MCP:/);
+  assert.match(result.stdout, /AI:/);
   assert.match(result.stdout, /Examples:/);
 
   const projectWorkflowIndex = result.stdout.indexOf('Project workflow:');
   const accountIndex = result.stdout.indexOf('Account & access:');
-  const aiIndex = result.stdout.indexOf('AI & MCP:');
+  const aiIndex = result.stdout.indexOf('AI:');
 
   assert.notEqual(projectWorkflowIndex, -1);
   assert.notEqual(accountIndex, -1);
@@ -39,5 +39,5 @@ test('top-level help groups commands into clearer sections', () => {
   assert.match(result.stdout, /open\|browser \[options\]/);
   assert.match(result.stdout, /dashboard \[options\]/);
   assert.match(result.stdout, /claude \[options\]/);
-  assert.match(result.stdout, /mcp:cursor \[options\]/);
+  assert.doesNotMatch(result.stdout, /mcp:cursor \[options\]/);
 });

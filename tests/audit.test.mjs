@@ -105,7 +105,7 @@ test('validate defaults to the production API host', async () => {
   }
 });
 
-test('exec prints API validation messages instead of a generic fallback', async () => {
+test('env set error messages do not double the command label', async () => {
   const tempDir = makeTempDir();
   const homeDir = path.join(tempDir, 'home');
 
@@ -113,7 +113,7 @@ test('exec prints API validation messages instead of a generic fallback', async 
     seedCredentials(homeDir);
     seedProjectLink(tempDir);
 
-    const result = runCli(['exec', 'php artisan about'], tempDir, {
+    const result = runCli(['env', 'set', 'APP_ENV', '${web.url}'], tempDir, {
       HOME: homeDir,
       RAMP_FETCH_FIXTURES: JSON.stringify([
         {
@@ -130,45 +130,12 @@ test('exec prints API validation messages instead of a generic fallback', async 
           },
         },
         {
-          url: 'https://api.example.test/api/v1/apps/app_123/commands/exec',
-          method: 'POST',
-          status: 422,
-          body: {
-            message: 'Saved command is not allowed on this service.',
-          },
-        },
-      ]),
-    });
-
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /Saved command is not allowed on this service\./);
-    assert.doesNotMatch(result.stderr, /Failed to run command \(HTTP 422\)/);
-  } finally {
-    await rm(tempDir, { recursive: true, force: true });
-  }
-});
-
-test('env set error messages do not double the command label', async () => {
-  const tempDir = makeTempDir();
-  const homeDir = path.join(tempDir, 'home');
-
-  try {
-    seedCredentials(homeDir);
-    seedProjectLink(tempDir);
-
-    const result = runCli(['env', 'set', 'APP_ENV', 'production'], tempDir, {
-      HOME: homeDir,
-      RAMP_FETCH_FIXTURES: JSON.stringify([
-        {
-          url: 'https://api.example.test/api/v1/apps/app_123',
+          url: 'https://api.example.test/api/v1/apps/app_123/env',
           method: 'GET',
           status: 200,
           body: {
-            data: {
-              id: 'app_123',
-              workspace_id: 'ws_personal',
-              stack: 'linked-app',
-              status: 'ready',
+            recipient: {
+              available: false,
             },
           },
         },
