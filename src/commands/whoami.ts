@@ -53,7 +53,6 @@ export async function runWhoAmICommand(options: WhoAmICommandOptions): Promise<n
             `Logged in as ${paint(auth.context.credentials.email ?? 'unknown', 'bold')}`,
           ),
           `Authorization: Bearer ${auth.context.credentials.token}`,
-          keyHint('Use `ramp mcp:cursor` for a ready-to-paste MCP snippet.'),
         ])}\n`,
       );
     }

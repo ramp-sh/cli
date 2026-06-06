@@ -61,6 +61,49 @@ type DatabaseImportResponse = {
 
 type ImportFormat = 'dump' | 'sql' | 'sql.gz';
 
+export async function runDbCommand(options: Pick<BaseOptions, 'json'>): Promise<number> {
+  const commands = [
+    {
+      command: 'ramp db:backup',
+      description: 'Create a database backup for the linked app.',
+      example: 'ramp db:backup',
+    },
+    {
+      command: 'ramp db:list',
+      description: 'List available database backups.',
+      example: 'ramp db:list',
+    },
+    {
+      command: 'ramp db:backup --list',
+      description: 'List available database backups, alias of db:list.',
+      example: 'ramp db:backup --list',
+    },
+    {
+      command: 'ramp db:restore --latest',
+      description: 'Restore the latest available database backup.',
+      example: 'ramp db:restore --latest',
+    },
+    {
+      command: 'ramp db:import --file ./dump.sql',
+      description: 'Import a local .dump, .sql, or .sql.gz file.',
+      example: 'ramp db:import --file ./dump.sql',
+    },
+  ];
+
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify({ commands }, null, 2)}\n`);
+    return 0;
+  }
+
+  process.stdout.write(`${box(['Database commands', ...commands.map((row) => row.command)])}\n\n`);
+  process.stdout.write(`${keyHint('Run any command with --help for its flags.')}\n`);
+  process.stdout.write(
+    `${keyHint('Project resolution uses --app, .ramp/config.json, or ramp.yaml stack.')}\n`,
+  );
+
+  return 0;
+}
+
 export async function runDbBackupCommand(
   options: BaseOptions & { list?: boolean },
 ): Promise<number> {
@@ -375,7 +418,9 @@ export async function runDbImportCommand(
   }
 
   const fileBuffer = await readFile(filePath);
-  const dumpBlob = new Blob([fileBuffer], { type: 'application/octet-stream' });
+  const dumpBlob = new Blob([fileBuffer], {
+    type: 'application/octet-stream',
+  });
   const formData = new FormData();
   formData.append('dump', dumpBlob, path.basename(filePath));
   formData.append('resource', resource.name);

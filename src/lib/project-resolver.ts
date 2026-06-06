@@ -19,6 +19,7 @@ export type AppMatch = {
   workspace_id: string;
   stack: string;
   status: string;
+  deploy_mode?: 'git' | 'upload' | 'one_click' | string;
   server?: {
     id?: string;
     name?: string;

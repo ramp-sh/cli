@@ -43,10 +43,10 @@ export async function runDeployCommand(options: DeployCommandOptions): Promise<n
     return 1;
   }
 
-  // Upload apps must use `ramp upload`
-  const appMeta = resolved.context.app as { deploy_mode?: string };
-  if (appMeta.deploy_mode === 'upload') {
-    process.stderr.write('This app uses upload deploys. Run `ramp upload` instead.\n');
+  if (resolved.context.app.deploy_mode === 'upload') {
+    process.stderr.write(
+      `App "${resolved.context.app.stack}" was created from a local upload. Run \`ramp upload\` from the project directory to upload and deploy a new archive.\n`,
+    );
     return 1;
   }
 

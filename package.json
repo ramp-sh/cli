@@ -1,6 +1,6 @@
 {
   "name": "@ramp-sh/cli",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "description": "Ramp CLI",
   "type": "module",
   "packageManager": "pnpm@9.12.3",
@@ -48,6 +48,7 @@
   },
   "dependencies": {
     "commander": "^14.0.2",
+    "libsodium-wrappers-sumo": "^0.8.4",
     "yaml": "^2.8.1"
   },
   "devDependencies": {

@@ -3,6 +3,7 @@ import process from 'node:process';
 import { buildApiV1Endpoint } from '../lib/api-url.js';
 import { buildApiHeaders } from '../lib/api-headers.js';
 import { describeApiError } from '../lib/api-errors.js';
+import { buildEnvEntryPayload, parseDotEnvContent, type EnvRecipient } from '../lib/env-sealing.js';
 import { resolveProjectContext } from '../lib/project-resolver.js';
 
 type BaseEnvOptions = {
@@ -41,7 +42,13 @@ export async function runEnvList(options: BaseEnvOptions): Promise<number> {
   }
 
   const payload = (await response.json()) as {
-    data?: Array<{ key: string; value: string; source: string }>;
+    data?: Array<{
+      key: string;
+      value: string | null;
+      source: string;
+      storage_mode: 'sealed' | 'readable';
+      readable_reason?: string | null;
+    }>;
   };
   const vars = Array.isArray(payload.data) ? payload.data : [];
 
@@ -52,7 +59,11 @@ export async function runEnvList(options: BaseEnvOptions): Promise<number> {
 
   if (!options.quiet) {
     for (const env of vars) {
-      process.stdout.write(`${env.key}=${env.value} (${env.source})\n`);
+      const renderedValue = env.storage_mode === 'sealed' ? '<sealed>' : (env.value ?? '');
+      const reason = env.readable_reason ? `, ${env.readable_reason}` : '';
+      process.stdout.write(
+        `${env.key}=${renderedValue} (${env.source}, ${env.storage_mode}${reason})\n`,
+      );
     }
   }
 
@@ -79,8 +90,11 @@ export async function runEnvSet(
       }),
       body: JSON.stringify({
         service: options.service,
-        key: options.key,
-        value: options.value,
+        ...(await buildEnvEntryPayload(
+          options.key,
+          options.value,
+          await fetchEnvRecipient(context, options.service),
+        )),
       }),
     },
   );
@@ -160,11 +174,19 @@ export async function runEnvPull(options: BaseEnvOptions & { output: string }): 
     return 1;
   }
 
-  const payload = (await response.json()) as { content?: string };
+  const payload = (await response.json()) as {
+    content?: string;
+    omitted_sealed_keys?: string[];
+  };
   await writeFile(options.output, `${payload.content ?? ''}\n`, { encoding: 'utf8', mode: 0o600 });
 
   if (!options.quiet) {
     process.stdout.write(`Wrote env vars to ${options.output}.\n`);
+    if ((payload.omitted_sealed_keys ?? []).length > 0) {
+      process.stdout.write(
+        `Omitted sealed vars: ${(payload.omitted_sealed_keys ?? []).join(', ')}.\n`,
+      );
+    }
   }
 
   return 0;
@@ -192,6 +214,13 @@ export async function runEnvPush(options: BaseEnvOptions & { file: string }): Pr
     return 1;
   }
 
+  const recipient = await fetchEnvRecipient(context, options.service);
+  const entries = await Promise.all(
+    parseDotEnvContent(content).map((entry) =>
+      buildEnvEntryPayload(entry.key, entry.value, recipient),
+    ),
+  );
+
   const response = await fetch(
     buildApiV1Endpoint(context.apiUrl, `/apps/${context.appId}/env/import`),
     {
@@ -203,7 +232,7 @@ export async function runEnvPush(options: BaseEnvOptions & { file: string }): Pr
       }),
       body: JSON.stringify({
         service: options.service,
-        content,
+        entries,
       }),
     },
   );
@@ -250,4 +279,35 @@ async function resolve(options: BaseEnvOptions): Promise<{
     selectedWorkspaceId: resolved.context.selectedWorkspaceId,
     appId: resolved.context.app.id,
   };
+}
+
+async function fetchEnvRecipient(
+  context: {
+    token: string;
+    apiUrl: string;
+    selectedWorkspaceId?: string;
+    appId: string;
+  },
+  service?: string,
+): Promise<EnvRecipient | null> {
+  const endpoint = new URL(buildApiV1Endpoint(context.apiUrl, `/apps/${context.appId}/env`));
+
+  if (service) {
+    endpoint.searchParams.set('service', service);
+  }
+
+  const response = await fetch(endpoint, {
+    headers: buildApiHeaders({
+      token: context.token,
+      selectedWorkspaceId: context.selectedWorkspaceId,
+    }),
+  });
+
+  if (!response.ok) {
+    process.stderr.write(`${await describeApiError(response, 'Failed to fetch env recipient')}\n`);
+    return null;
+  }
+
+  const payload = (await response.json()) as { recipient?: EnvRecipient };
+  return payload.recipient ?? null;
 }

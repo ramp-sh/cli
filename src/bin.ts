@@ -4,20 +4,21 @@ import { runAppsCommand } from './commands/apps.js';
 import { runCreateCommand } from './commands/create.js';
 import { runDeployCommand } from './commands/deploy.js';
 import { runEnvDelete, runEnvList, runEnvPull, runEnvPush, runEnvSet } from './commands/env.js';
-import { runExecCommand } from './commands/exec.js';
 import { runInitCommand } from './commands/init.js';
 import { runImportRenderCommand } from './commands/import-render.js';
 import { runLinkCommand } from './commands/link.js';
 import { runLoginCommand } from './commands/login.js';
 import { runLogsCommand } from './commands/logs.js';
-import { runMcpCursorCommand } from './commands/mcp-cursor.js';
-import { runMcpLoginCommand } from './commands/mcp-login.js';
 import { runDashboardCommand, runOpenCommand } from './commands/open.js';
 import { runLogoutCommand } from './commands/logout.js';
 import { runReleasesCommand } from './commands/releases.js';
 import { runRollbackCommand } from './commands/rollback.js';
-import { runDbBackupCommand, runDbImportCommand, runDbRestoreCommand } from './commands/db.js';
-import { runSavedCommand } from './commands/run.js';
+import {
+  runDbBackupCommand,
+  runDbCommand,
+  runDbImportCommand,
+  runDbRestoreCommand,
+} from './commands/db.js';
 import { runUploadCommand } from './commands/upload.js';
 import { runServersCommand } from './commands/servers.js';
 import { runStatusCommand } from './commands/status.js';
@@ -224,85 +225,6 @@ program
 
     process.exitCode = code;
   });
-
-program
-  .command('exec <command...>')
-  .helpGroup('Project workflow:')
-  .description('Run arbitrary command on app server')
-  .option('--app <stack>', 'Override stack name')
-  .option('--server <name>', 'Filter by server name')
-  .option('--json', 'Output JSON result')
-  .option('--api-url <url>', 'Ramp API base URL')
-  .action(
-    async (
-      commandParts: string[],
-      options: {
-        app?: string;
-        server?: string;
-        json?: boolean;
-        apiUrl?: string;
-      },
-    ) => {
-      const code = await runExecCommand({
-        app: options.app,
-        server: options.server,
-        command: commandParts.join(' '),
-        json: options.json === true,
-        apiUrl: options.apiUrl,
-        ...globals(),
-      });
-
-      process.exitCode = code;
-    },
-  );
-
-program
-  .command('run [name]')
-  .helpGroup('Project workflow:')
-  .description('Run saved command by name')
-  .option('--app <stack>', 'Override stack name')
-  .option('--server <name>', 'Filter by server name')
-  .option('--list', 'List saved commands for current app')
-  .option('--service <service>', 'Filter/list by service id or name')
-  .option(
-    '--param <key=value...>',
-    'Template parameter (repeatable)',
-    (value, previous: string[]) => {
-      previous.push(value);
-      return previous;
-    },
-    [],
-  )
-  .option('--json', 'Output JSON result')
-  .option('--api-url <url>', 'Ramp API base URL')
-  .action(
-    async (
-      name: string | undefined,
-      options: {
-        app?: string;
-        server?: string;
-        list?: boolean;
-        service?: string;
-        param?: string[];
-        json?: boolean;
-        apiUrl?: string;
-      },
-    ) => {
-      const code = await runSavedCommand({
-        app: options.app,
-        server: options.server,
-        name,
-        list: options.list === true,
-        service: options.service,
-        params: options.param ?? [],
-        json: options.json === true,
-        apiUrl: options.apiUrl,
-        ...globals(),
-      });
-
-      process.exitCode = code;
-    },
-  );
 
 const env = program
   .command('env')
@@ -650,40 +572,6 @@ program
   );
 
 program
-  .command('mcp:login')
-  .description('Show MCP web connection details for current CLI token')
-  .helpGroup('AI & MCP:')
-  .option('--json', 'Output JSON result')
-  .option('--token-only', 'Print only the bearer token')
-  .option('--api-url <url>', 'Ramp API base URL')
-  .action(async (options: { json?: boolean; tokenOnly?: boolean; apiUrl?: string }) => {
-    const code = await runMcpLoginCommand({
-      json: options.json === true,
-      tokenOnly: options.tokenOnly === true,
-      apiUrl: options.apiUrl,
-      ...globals(),
-    });
-
-    process.exitCode = code;
-  });
-
-program
-  .command('mcp:cursor')
-  .description('Print a ready-to-paste MCP config snippet')
-  .helpGroup('AI & MCP:')
-  .option('--json', 'Output JSON result')
-  .option('--api-url <url>', 'Ramp API base URL')
-  .action(async (options: { json?: boolean; apiUrl?: string }) => {
-    const code = await runMcpCursorCommand({
-      json: options.json === true,
-      apiUrl: options.apiUrl,
-      ...globals(),
-    });
-
-    process.exitCode = code;
-  });
-
-program
   .command('deploy')
   .description('Trigger deploy using auto project resolution')
   .helpGroup('Project workflow:')
@@ -742,6 +630,40 @@ program
       process.exitCode = code;
     },
   );
+
+program
+  .command('db')
+  .description('Show database commands')
+  .helpGroup('Project workflow:')
+  .option('--json', 'Output JSON result')
+  .action(async (options: { json?: boolean }) => {
+    const code = await runDbCommand({
+      json: options.json === true,
+    });
+
+    process.exitCode = code;
+  });
+
+program
+  .command('db:list')
+  .description('List database backups for an app')
+  .helpGroup('Project workflow:')
+  .option('--app <stack>', 'Override stack name')
+  .option('--server <name>', 'Filter by server name')
+  .option('--json', 'Output JSON result')
+  .option('--api-url <url>', 'Ramp API base URL')
+  .action(async (options: { app?: string; server?: string; json?: boolean; apiUrl?: string }) => {
+    const code = await runDbBackupCommand({
+      app: options.app,
+      server: options.server,
+      list: true,
+      json: options.json === true,
+      apiUrl: options.apiUrl,
+      ...globals(),
+    });
+
+    process.exitCode = code;
+  });
 
 program
   .command('db:backup')
@@ -942,11 +864,11 @@ program
     },
   );
 
-program.commandsGroup('AI & MCP:');
+program.commandsGroup('AI:');
 
 program
   .command('claude')
-  .helpGroup('AI & MCP:')
+  .helpGroup('AI:')
   .description('Open Claude Code on your server via SSH')
   .option('--app <stack>', 'Override stack name')
   .option('--server <name>', 'Filter by server name')
@@ -970,7 +892,7 @@ program
 
 program
   .command('codex')
-  .helpGroup('AI & MCP:')
+  .helpGroup('AI:')
   .description('Open Codex on your server via SSH')
   .option('--app <stack>', 'Override stack name')
   .option('--server <name>', 'Filter by server name')
@@ -994,7 +916,7 @@ program
 
 program
   .command('opencode')
-  .helpGroup('AI & MCP:')
+  .helpGroup('AI:')
   .description('Open OpenCode on your server via SSH')
   .option('--app <stack>', 'Override stack name')
   .option('--server <name>', 'Filter by server name')
@@ -1018,7 +940,7 @@ program
 
 program
   .command('gemini')
-  .helpGroup('AI & MCP:')
+  .helpGroup('AI:')
   .description('Open Gemini CLI on your server via SSH')
   .option('--app <stack>', 'Override stack name')
   .option('--server <name>', 'Filter by server name')

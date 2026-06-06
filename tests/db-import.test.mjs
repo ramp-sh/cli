@@ -76,6 +76,73 @@ function writeDumpFile(dir, fileName, contents = 'select 1;\n') {
   return filePath;
 }
 
+test('db command lists available database commands', async () => {
+  const tempDir = makeTempDir();
+
+  try {
+    const result = runCli(['db'], tempDir);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Database commands/);
+    assert.match(result.stdout, /ramp db:backup/);
+    assert.match(result.stdout, /ramp db:list/);
+    assert.match(result.stdout, /ramp db:restore --latest/);
+    assert.match(result.stdout, /ramp db:import --file \.\/dump\.sql/);
+    assert.equal(result.stderr, '');
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('db:list prints available backups for the linked app', async () => {
+  const tempDir = makeTempDir();
+  const homeDir = path.join(tempDir, 'home');
+
+  try {
+    seedCredentials(homeDir);
+    seedProjectLink(tempDir, 'app_123', 'go-api');
+
+    const result = runCli(['db:list'], tempDir, {
+      HOME: homeDir,
+      RAMP_FETCH_FIXTURES: JSON.stringify([
+        {
+          url: 'https://api.example.test/api/v1/apps/app_123',
+          method: 'GET',
+          status: 200,
+          body: {
+            data: {
+              id: 'app_123',
+              workspace_id: 'ws_pro',
+              stack: 'go-api',
+              status: 'live',
+            },
+          },
+        },
+        {
+          url: 'https://api.example.test/api/v1/apps/app_123/db/backups',
+          method: 'GET',
+          status: 200,
+          body: {
+            data: [
+              {
+                id: 'backup_123',
+                status: 'completed',
+                created_at: '2026-06-06T10:00:00Z',
+              },
+            ],
+          },
+        },
+      ]),
+    });
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /backup_123 completed 2026-06-06T10:00:00Z/);
+    assert.equal(result.stderr, '');
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
 test('db:import fails fast when the local dump file is missing', async () => {
   const tempDir = makeTempDir();
 

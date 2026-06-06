@@ -150,3 +150,44 @@ test('deploy sends the selected workspace header on the action request', async (
     await rm(tempDir, { recursive: true, force: true });
   }
 });
+
+test('deploy tells upload apps to use ramp upload before triggering a deploy', async () => {
+  const tempDir = makeTempDir();
+  const homeDir = path.join(tempDir, 'home');
+  const capturePath = path.join(tempDir, 'capture.json');
+
+  try {
+    seedCredentials(homeDir, 'https://api.example.test', 'ws_pro');
+    seedProjectLink(tempDir, 'app_upload', 'test-app-ramp');
+
+    const result = runCli(['deploy', '--no-git-check'], tempDir, {
+      HOME: homeDir,
+      RAMP_FETCH_CAPTURE: capturePath,
+      RAMP_FETCH_FIXTURES: JSON.stringify([
+        {
+          url: 'https://api.example.test/api/v1/apps/app_upload',
+          method: 'GET',
+          status: 200,
+          body: {
+            data: {
+              id: 'app_upload',
+              workspace_id: 'ws_pro',
+              stack: 'test-app-ramp',
+              status: 'failed',
+              deploy_mode: 'upload',
+            },
+          },
+        },
+      ]),
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Run `ramp upload`/);
+
+    const captures = JSON.parse(readFileSync(capturePath, 'utf8'));
+    assert.equal(captures.length, 1);
+    assert.equal(captures[0].method, 'GET');
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
