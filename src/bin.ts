@@ -79,6 +79,8 @@ program
   .option('--print', 'Print generated YAML to stdout')
   .option('--json', 'Output JSON metadata for scripting')
   .option('--force', 'Overwrite existing ramp.yaml without prompt')
+  .option('--env-file <path>', 'Detect env keys from a specific dotenv file')
+  .option('--no-detect-env', 'Skip .env/.env.local key detection')
   .action(
     async (options: {
       template?: string;
@@ -86,6 +88,8 @@ program
       print?: boolean;
       json?: boolean;
       force?: boolean;
+      envFile?: string;
+      detectEnv?: boolean;
     }) => {
       const code = await runInitCommand({
         template: options.template,
@@ -93,6 +97,8 @@ program
         print: options.print === true,
         json: options.json === true,
         force: options.force === true,
+        detectEnv: options.detectEnv !== false,
+        envFile: options.envFile,
         ...globals(),
       });
 
@@ -362,6 +368,7 @@ env
   .option('--server <name>', 'Filter by server name')
   .option('--service <service>', 'Service id or name')
   .option('--file <path>', 'Input .env path', '.env')
+  .option('--from <path>', 'Input .env path')
   .option('--json', 'Output JSON result')
   .option('--api-url <url>', 'Ramp API base URL')
   .action(
@@ -370,6 +377,7 @@ env
       server?: string;
       service?: string;
       file?: string;
+      from?: string;
       json?: boolean;
       apiUrl?: string;
     }) => {
@@ -377,7 +385,8 @@ env
         app: options.app,
         server: options.server,
         service: options.service,
-        file: options.file ?? '.env',
+        file: options.from ?? options.file ?? '.env',
+        action: 'push',
         json: options.json === true,
         apiUrl: options.apiUrl,
         ...globals(),
@@ -386,6 +395,43 @@ env
       process.exitCode = code;
     },
   );
+
+for (const commandName of ['sync', 'upload'] as const) {
+  env
+    .command(commandName)
+    .description(`${commandName === 'sync' ? 'Sync' : 'Upload'} env vars from a dotenv file`)
+    .option('--app <stack>', 'Override stack name')
+    .option('--server <name>', 'Filter by server name')
+    .option('--service <service>', 'Service id or name')
+    .option('--from <path>', 'Input .env path', '.env')
+    .option('--file <path>', 'Input .env path')
+    .option('--json', 'Output JSON result')
+    .option('--api-url <url>', 'Ramp API base URL')
+    .action(
+      async (options: {
+        app?: string;
+        server?: string;
+        service?: string;
+        from?: string;
+        file?: string;
+        json?: boolean;
+        apiUrl?: string;
+      }) => {
+        const code = await runEnvPush({
+          app: options.app,
+          server: options.server,
+          service: options.service,
+          file: options.from ?? options.file ?? '.env',
+          action: commandName,
+          json: options.json === true,
+          apiUrl: options.apiUrl,
+          ...globals(),
+        });
+
+        process.exitCode = code;
+      },
+    );
+}
 
 program
   .command('apps')

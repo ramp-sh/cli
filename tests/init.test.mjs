@@ -316,6 +316,59 @@ test('init adonis template writes sane defaults', async () => {
   }
 });
 
+test('init detects dotenv keys as placeholders without copying values', async () => {
+  const tempDir = makeTempDir();
+
+  try {
+    writeFileSync(
+      path.join(tempDir, '.env.local'),
+      [
+        'DATABASE_URL=postgres://local-secret',
+        'STRIPE_SECRET_KEY=sk_test_secret',
+        'lowercase_key=ignored',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const result = runCli(['init', '--template', 'laravel', '--yes', '--json'], tempDir);
+
+    assert.equal(result.status, 0);
+
+    const payload = JSON.parse(result.stdout);
+
+    assert.deepEqual(payload.env.files, ['.env.local']);
+    assert.deepEqual(payload.env.keys, ['DATABASE_URL', 'STRIPE_SECRET_KEY']);
+    assert.deepEqual(payload.env.services, ['web']);
+    assert.equal(payload.env.placeholders, 1);
+    assert.match(payload.yaml, /DATABASE_URL: \$\{db\.url\}/);
+    assert.match(payload.yaml, /STRIPE_SECRET_KEY: input_yours/);
+    assert.doesNotMatch(payload.yaml, /sk_test_secret/);
+    assert.doesNotMatch(payload.yaml, /postgres:\/\/local-secret/);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('init can skip dotenv key detection', async () => {
+  const tempDir = makeTempDir();
+
+  try {
+    writeFileSync(path.join(tempDir, '.env'), 'API_SECRET=super-secret\n', 'utf8');
+
+    const result = runCli(['init', '--template', 'node-api', '--yes', '--no-detect-env'], tempDir);
+
+    assert.equal(result.status, 0);
+
+    const yaml = readFileSync(path.join(tempDir, 'ramp.yaml'), 'utf8');
+
+    assert.doesNotMatch(yaml, /API_SECRET/);
+    assert.doesNotMatch(yaml, /super-secret/);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
 test('init merges generated sections into an existing ramp.yaml by default with --yes', async () => {
   const tempDir = makeTempDir();
 

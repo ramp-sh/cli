@@ -1,4 +1,7 @@
 import sodium from 'libsodium-wrappers-sumo';
+import { ENV_FINGERPRINT_ALGORITHM, fingerprintSealedEnvValue } from './env-fingerprint.js';
+
+export { parseDotEnvContent } from './dotenv.js';
 
 export type EnvRecipient = {
   available: boolean;
@@ -17,42 +20,23 @@ export type EnvEntryPayload = {
     ciphertext: string;
     key_id: string;
     algorithm: string;
+    fingerprint?: string;
+    fingerprint_algorithm?: string;
   };
 };
 
+export type EnvFingerprintContext = {
+  secret: string | null;
+  appId: string;
+};
+
 const referencePattern = /\$\{[^}]+\}/;
-
-export function parseDotEnvContent(content: string): Array<{ key: string; value: string }> {
-  const entries: Array<{ key: string; value: string }> = [];
-
-  for (const rawLine of content.split('\n')) {
-    const line = rawLine.trim();
-
-    if (!line || line.startsWith('#') || !line.includes('=')) {
-      continue;
-    }
-
-    const [rawKey, ...rest] = line.split('=');
-    const key = rawKey.trim();
-    const value = rest
-      .join('=')
-      .trim()
-      .replace(/^['"]|['"]$/g, '');
-
-    if (!/^[A-Z][A-Z0-9_]*$/.test(key)) {
-      continue;
-    }
-
-    entries.push({ key, value });
-  }
-
-  return entries;
-}
 
 export async function buildEnvEntryPayload(
   key: string,
   value: string,
   recipient: EnvRecipient | null | undefined,
+  fingerprintContext?: EnvFingerprintContext | null,
 ): Promise<EnvEntryPayload> {
   if (referencePattern.test(value)) {
     return { key, value };
@@ -67,12 +51,28 @@ export async function buildEnvEntryPayload(
   const publicKey = sodium.from_base64(recipient.public_key, sodium.base64_variants.ORIGINAL);
   const ciphertext = sodium.crypto_box_seal(sodium.from_string(value), publicKey);
 
+  const fingerprint =
+    fingerprintContext?.secret && fingerprintContext.appId
+      ? fingerprintSealedEnvValue({
+          secret: fingerprintContext.secret,
+          appId: fingerprintContext.appId,
+          key,
+          value,
+        })
+      : null;
+
   return {
     key,
     sealed: {
       ciphertext: sodium.to_base64(ciphertext, sodium.base64_variants.ORIGINAL),
       key_id: recipient.key_id,
       algorithm: recipient.algorithm,
+      ...(fingerprint
+        ? {
+            fingerprint,
+            fingerprint_algorithm: ENV_FINGERPRINT_ALGORITHM,
+          }
+        : {}),
     },
   };
 }

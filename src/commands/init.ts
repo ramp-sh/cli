@@ -3,6 +3,7 @@ import path from 'node:path';
 import process, { stdin, stdout } from 'node:process';
 import readline from 'node:readline/promises';
 import { parseDocument, stringify } from 'yaml';
+import { discoverDotEnvFiles, uniqueDotEnvKeys } from '../lib/dotenv.js';
 import { fileExists } from '../lib/file-exists.js';
 import { askOrCancel, wireSigintToClose } from '../lib/prompt.js';
 import { selectManyWithArrows, selectWithArrows } from '../lib/select.js';
@@ -23,6 +24,8 @@ type InitOptions = {
   print: boolean;
   json: boolean;
   force: boolean;
+  detectEnv: boolean;
+  envFile?: string;
   quiet: boolean;
   verbose: boolean;
 };
@@ -67,7 +70,21 @@ type InitResult = {
   resources: string[];
   yaml: string;
   conflicts: string[];
+  env: InitEnvResult;
 };
+
+type InitEnvResult = {
+  files: string[];
+  keys: string[];
+  services: string[];
+  placeholders: number;
+};
+
+type EnvPlaceholderResult =
+  | { ok: true; env: InitEnvResult }
+  | { ok: false; cancelled?: boolean; error: string };
+
+const ENV_PLACEHOLDER_VALUE = 'input_yours';
 
 export function withOptionalDomains(
   service: Record<string, unknown>,
@@ -177,6 +194,12 @@ export async function runInitCommand(options: InitOptions): Promise<number> {
       }
     }
 
+    const envPlaceholders = await addDetectedEnvPlaceholders(finalConfig, options, rl);
+
+    if (!envPlaceholders.ok) {
+      return outputError(envPlaceholders.error, options, envPlaceholders.cancelled ? 130 : 1);
+    }
+
     const yaml = `${stringify(finalConfig)}\n`;
     const result: InitResult = {
       ok: true,
@@ -188,6 +211,7 @@ export async function runInitCommand(options: InitOptions): Promise<number> {
       resources: Object.keys(finalConfig.resources ?? {}),
       yaml,
       conflicts,
+      env: envPlaceholders.env,
     };
 
     if (options.print) {
@@ -1292,6 +1316,154 @@ function buildResourceMap(resources: ResourceKind[]): ResourceMap {
   return resourceMap;
 }
 
+async function addDetectedEnvPlaceholders(
+  config: RampConfig,
+  options: InitOptions,
+  rl: readline.Interface,
+): Promise<EnvPlaceholderResult> {
+  const empty: InitEnvResult = {
+    files: [],
+    keys: [],
+    services: [],
+    placeholders: 0,
+  };
+
+  if (options.detectEnv === false) {
+    return { ok: true, env: empty };
+  }
+
+  const envFiles = await discoverDotEnvFiles(process.cwd(), options.envFile);
+
+  if (options.envFile && envFiles.length === 0) {
+    return {
+      ok: false,
+      error: `Env file not found: ${options.envFile}`,
+    };
+  }
+
+  const keys = uniqueDotEnvKeys(envFiles);
+
+  if (keys.length === 0) {
+    return { ok: true, env: empty };
+  }
+
+  if (!options.yes) {
+    const fileList = envFiles.map((file) => file.displayPath).join(', ');
+    const answer = await askOrCancel(
+      rl,
+      `Found ${keys.length} env key${keys.length === 1 ? '' : 's'} in ${fileList}. Add placeholders to ramp.yaml? [Y/n]: `,
+    );
+
+    if (answer === null) {
+      return { ok: false, cancelled: true, error: 'Cancelled.' };
+    }
+
+    if (['n', 'no'].includes(answer.trim().toLowerCase())) {
+      return {
+        ok: true,
+        env: {
+          ...empty,
+          files: envFiles.map((file) => file.displayPath),
+          keys,
+        },
+      };
+    }
+  }
+
+  const serviceNames = Object.keys(config.services ?? {});
+
+  if (serviceNames.length === 0) {
+    return {
+      ok: true,
+      env: {
+        ...empty,
+        files: envFiles.map((file) => file.displayPath),
+        keys,
+      },
+    };
+  }
+
+  const defaultServices = defaultEnvServices(serviceNames);
+  const selectedServices =
+    options.yes || serviceNames.length === 1
+      ? defaultServices
+      : await selectManyWithArrows(
+          'Add env placeholders to services',
+          serviceNames.map((serviceName) => ({
+            label: serviceName,
+            value: serviceName,
+          })),
+          defaultServices,
+        );
+
+  if (selectedServices === null) {
+    return { ok: false, cancelled: true, error: 'Cancelled.' };
+  }
+
+  const services = selectedServices.filter((serviceName) => serviceNames.includes(serviceName));
+
+  if (services.length === 0) {
+    return {
+      ok: true,
+      env: {
+        files: envFiles.map((file) => file.displayPath),
+        keys,
+        services: [],
+        placeholders: 0,
+      },
+    };
+  }
+
+  let placeholders = 0;
+
+  for (const serviceName of services) {
+    const service = config.services[serviceName];
+
+    if (!isRecord(service)) {
+      continue;
+    }
+
+    const env = isRecord(service.env) ? { ...service.env } : {};
+
+    for (const key of keys) {
+      if (typeof env[key] === 'string') {
+        continue;
+      }
+
+      env[key] = ENV_PLACEHOLDER_VALUE;
+      placeholders++;
+    }
+
+    service.env = env;
+  }
+
+  return {
+    ok: true,
+    env: {
+      files: envFiles.map((file) => file.displayPath),
+      keys,
+      services,
+      placeholders,
+    },
+  };
+}
+
+function defaultEnvServices(serviceNames: string[]): string[] {
+  if (serviceNames.length === 0) {
+    return [];
+  }
+
+  if (serviceNames.includes('web')) {
+    return ['web'];
+  }
+
+  return [serviceNames[0]];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 async function mergeWithExistingConfig(
   targetPath: string,
   generatedConfig: RampConfig,
@@ -1395,6 +1567,27 @@ function outputInitResult(result: InitResult, options: InitOptions): number {
       process.stdout.write(
         `${box([
           statusLine('info', `Preserved existing entries: ${result.conflicts.join(', ')}`),
+        ])}\n`,
+      );
+    }
+
+    if (result.env.placeholders > 0) {
+      const fileList = joinList(result.env.files);
+      const serviceList = joinList(result.env.services);
+
+      process.stdout.write(
+        `${box([
+          statusLine(
+            'info',
+            `Added ${result.env.placeholders} env placeholder${
+              result.env.placeholders === 1 ? '' : 's'
+            } from ${fileList} to ${serviceList}`,
+          ),
+          keyHint(
+            `Next env step: ramp env sync --from ${result.env.files.at(-1) ?? '.env'} --service ${
+              result.env.services[0] ?? 'web'
+            }`,
+          ),
         ])}\n`,
       );
     }

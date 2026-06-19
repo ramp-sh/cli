@@ -99,8 +99,17 @@ ramp env list
 ramp env set APP_ENV production
 ramp env delete APP_ENV
 ramp env pull --output .env
+ramp env sync --from .env.local --service web
+ramp env upload --from .env
 ramp env push --file .env
 ```
+
+`ramp env sync` is an upsert. It reports created keys, readable value changes,
+sealed values written, and unchanged keys. For sealed values, the CLI sends a
+local-only HMAC fingerprint so repeated syncs from the same machine can be
+reported as unchanged without making the secret readable to Ramp. Readable
+changes include a small `- old` / `+ new` diff. Use `--json` to see created,
+changed, sealed-written, unchanged, skipped key lists, and readable diffs.
 
 Create app and auto-link current directory:
 
@@ -213,6 +222,11 @@ pnpm dlx @ramp-sh/cli validate --strict
 When `ramp.yaml` already exists, interactive mode offers `overwrite`, `merge`, or `cancel`.
 With `--yes`, existing files default to a safe merge; use `--force` to overwrite.
 Use `--json` to emit metadata for scripting. The JSON payload includes the generated YAML.
+
+`ramp init` also detects dotenv files in the current directory (`.env.example`,
+`.env`, `.env.local`) and adds env keys as `input_yours` placeholders on the
+selected service. Secret values are never copied into `ramp.yaml`. Use
+`--env-file <path>` to detect keys from a specific file, or `--no-detect-env` to skip detection.
 
 ## Local development
 
