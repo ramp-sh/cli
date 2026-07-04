@@ -22,7 +22,7 @@ export async function readCredentials(): Promise<StoredCredentials | null> {
   if (typeof envToken === 'string' && envToken !== '') {
     return {
       token: envToken,
-      apiUrl: process.env.RAMP_API_URL?.trim() || 'https://api.ramp.sh',
+      apiUrl: process.env.RAMP_API_URL?.trim() || 'https://ramp.sh',
       email: process.env.RAMP_EMAIL,
       selectedWorkspaceId: process.env.RAMP_WORKSPACE_ID?.trim() || undefined,
       updatedAt: new Date().toISOString(),

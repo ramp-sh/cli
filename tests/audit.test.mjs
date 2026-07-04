@@ -84,7 +84,7 @@ test('validate defaults to the production API host', async () => {
       HOME: homeDir,
       RAMP_FETCH_FIXTURES: JSON.stringify([
         {
-          url: 'https://api.ramp.sh/api/v1/validate',
+          url: 'https://ramp.sh/api/v1/validate',
           method: 'POST',
           status: 200,
           body: {
@@ -102,6 +102,37 @@ test('validate defaults to the production API host', async () => {
       errors: [],
       warnings: [],
     });
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('env token auth defaults to the production app host', async () => {
+  const tempDir = makeTempDir();
+
+  try {
+    const result = runCli(['whoami', '--json'], tempDir, {
+      HOME: path.join(tempDir, 'home'),
+      RAMP_TOKEN: 'rmp_cli_env_token',
+      RAMP_WORKSPACE_ID: 'ws_personal',
+      RAMP_FETCH_FIXTURES: JSON.stringify([
+        {
+          url: 'https://ramp.sh/api/v1/auth/me',
+          method: 'GET',
+          status: 200,
+          body: {
+            user: {
+              id: 'user_123',
+              email: 'tiago@example.com',
+              name: 'Tiago',
+            },
+          },
+        },
+      ]),
+    });
+
+    assert.equal(result.status, 0);
+    assert.equal(JSON.parse(result.stdout).apiUrl, 'https://ramp.sh');
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }

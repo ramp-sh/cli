@@ -30,7 +30,7 @@ import { runAiBridgeCommand } from './commands/ai-bridge.js';
 import { configureRampHelp } from './lib/help.js';
 import { brandBanner, isInteractiveUi } from './lib/ui.js';
 
-const DEFAULT_API_URL = process.env.RAMP_API_URL ?? 'https://api.ramp.sh';
+const DEFAULT_API_URL = process.env.RAMP_API_URL ?? 'https://ramp.sh';
 const program = new Command();
 
 program.name('ramp').description('Ramp CLI').version(readCliPackageVersion());

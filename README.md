@@ -47,7 +47,7 @@ ramp login --email you@example.com
 Or use an existing API token (useful for CI):
 
 ```bash
-ramp login --token rmp_cli_... --api-url https://api.ramp.sh
+ramp login --token rmp_cli_... --api-url https://ramp.sh
 ```
 
 Check current identity:
@@ -163,7 +163,7 @@ pnpm dlx @ramp-sh/cli validate
 ```
 
 `validate` uses remote API validation only.
-Default API URL is `https://api.ramp.sh` (or `RAMP_API_URL` if set).
+Default API URL is `https://ramp.sh` (or `RAMP_API_URL` if set).
 Remote validation requires a CLI token from `ramp login`.
 Use `--server <id-or-name>` to include server-level collision checks (ports/domains).
 
